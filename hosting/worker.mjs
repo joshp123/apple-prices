@@ -38,8 +38,8 @@ function render(text) {
 }
 export default { async fetch(request) {
   const url = new URL(request.url);
-  if (url.pathname === '/api/whereami') return Response.json({country: request.cf?.country ?? null, region: request.cf?.region ?? null, regionCode: request.cf?.regionCode ?? null}, {headers: {'Cache-Control': 'no-store'}});
-  if (url.pathname === '/api/share-test.png') { const start = Date.now(), png = render(url.searchParams.get('text') || 'Apple Prices'); return new Response(png, {headers: {'Content-Type': 'image/png', 'Cache-Control': 'no-store', 'Server-Timing': `render;dur=${Date.now() - start}`}}); }
+  if (url.pathname === '/api/whereami') return Response.json({country: request.cf?.country ?? request.headers.get('CF-IPCountry') ?? null, region: request.cf?.region ?? null, regionCode: request.cf?.regionCode ?? null}, {headers: {'Cache-Control': 'no-store'}});
+  if (url.pathname === '/api/share-test.png') { const png = render(url.searchParams.get('text') || 'Apple Prices'); return new Response(png, {headers: {'Content-Type': 'image/png', 'Cache-Control': 'no-store'}}); }
   if (url.pathname === '/data/test.binpb') return new Response(snapshot, {headers: {'Content-Type': 'application/protobuf', 'Cache-Control': 'public, max-age=3600'}});
   if (url.pathname === '/') return new Response('Apple Prices — coming soon.', {headers: {'Content-Type': 'text/plain; charset=utf-8'}});
   return new Response('Not found', {status: 404});
