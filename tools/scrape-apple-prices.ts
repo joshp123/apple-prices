@@ -165,11 +165,11 @@ async function checkedProductImageUrls(): Promise<Map<string, string>> {
   return imageUrls;
 }
 
-// Macau has no online store, but Apple's Macau product pages state starting prices. Apple prices Macau like Hong Kong,
-// whose dollar the pataca is pegged to, so the first price on the page close to Hong Kong's base price is the base price;
-// that rejects the education, trade-in and sibling-product prices on the same page.
+// Macau has no online store, but Apple's Macau product pages state starting prices. A page also shows education,
+// trade-in and sibling-product prices, so the base price is the one closest to Hong Kong's (the pataca is pegged to the
+// Hong Kong dollar and Apple prices the two alike), accepted only within 10% of it.
 const macauPriceWordsToSkip = ['教育', '換購', '以舊換新', '優惠', '只需', '可享'];
-const largestMacauDifferenceFromHongKong = 0.04;
+const largestMacauDifferenceFromHongKong = 0.1;
 
 async function scrapeMacauBasePrices(hongKongPrices: ScrapedShelfPrice[], hongKongDollarsPerPataca: number): Promise<ScrapedShelfPrice[]> {
   const prices: ScrapedShelfPrice[] = [];
@@ -181,10 +181,12 @@ async function scrapeMacauBasePrices(hongKongPrices: ScrapedShelfPrice[], hongKo
     if (page.httpStatus !== 200) continue;
     const text = readableText(page.html);
     const expectedPatacas = hongKongBase.price / hongKongDollarsPerPataca;
+    const differenceFromHongKong = (patacas: number) => Math.abs(patacas / expectedPatacas - 1);
     const basePrice = [...text.matchAll(/MOP\$ ?([0-9,]+)/g)]
       .filter(match => !macauPriceWordsToSkip.some(word => text.slice(Math.max(0, match.index - 30), match.index).includes(word)))
       .map(match => Number(match[1].replace(/,/g, '')))
-      .find(patacas => Math.abs(patacas / expectedPatacas - 1) < largestMacauDifferenceFromHongKong);
+      .filter(patacas => differenceFromHongKong(patacas) < largestMacauDifferenceFromHongKong)
+      .sort((a, b) => differenceFromHongKong(a) - differenceFromHongKong(b))[0];
     if (basePrice) prices.push({ ...hongKongBase, price: basePrice, sourcePageUrl: url, applePartNumber: '' });
     else warnings.push(`mo ${product.productId}: no price on ${url} near Hong Kong's`);
   }
