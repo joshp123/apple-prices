@@ -1,4 +1,4 @@
-import { build, transform } from 'esbuild';
+import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
 import { copyFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { gzipSync } from 'node:zlib';
@@ -29,7 +29,7 @@ for (const photoFile of await readdir('assets/product-photos')) shareCardProduct
 const addressesOfFiles = { PRICE_SNAPSHOT_PATH: JSON.stringify(priceSnapshotPath), MAP_PLACES_PATH: JSON.stringify(mapPlacesPath), FLAG_PATHS: JSON.stringify(flagPaths) };
 const page = await build({ entryPoints: ['web/page.ts'], bundle: true, format: 'esm', target: 'es2022', minify: true, define: addressesOfFiles, write: false, legalComments: 'none' });
 const pageScript = Buffer.from(page.outputFiles[0].contents);
-const pageStyles = Buffer.from((await transform(await readFile('web/style.css', 'utf8'), { loader: 'css', minify: true })).code);
+const pageStyles = Buffer.from((await build({ entryPoints: ['web/style.css'], bundle: true, minify: true, write: false, legalComments: 'none' })).outputFiles[0].contents);
 const pageHtml = (await readFile('web/index.html', 'utf8'))
   .replace('/page.js', addWebAsset('page', 'js', pageScript, 'text/javascript; charset=utf-8'))
   .replace('/page.css', addWebAsset('page', 'css', pageStyles, 'text/css; charset=utf-8'));

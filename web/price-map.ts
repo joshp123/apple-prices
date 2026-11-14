@@ -99,6 +99,11 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
     if (event.sourceEvent) whenMovedByHand();
   });
   drawing.call(zoomBehaviour).on('dblclick.zoom', null);
+  // Labels cover much of the map, so the wheel over one zooms the map beneath it.
+  labelsBox.addEventListener('wheel', event => {
+    event.preventDefault();
+    drawing.node()!.dispatchEvent(new WheelEvent('wheel', event));
+  }, { passive: false });
   drawing.on('click', event => {
     const placeCode = (event.target as Element).getAttribute('data-place');
     if (!placeCode || placeCode.startsWith('unnamed')) return whenPlaceIsClicked(null);
@@ -119,7 +124,7 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
     if (container.clientWidth === size.width && container.clientHeight === size.height) return false;
     size = { width: container.clientWidth, height: container.clientHeight };
     const isPhone = isPhoneWidth(), sideMargin = isPhone ? 4 : 16;
-    projection.fitExtent([[sideMargin, isPhone ? 48 : 56], [size.width - sideMargin, size.height - sideMargin]], { type: 'MultiPoint', coordinates: [[-169, -55], [-169, 73], [190, -55], [190, 73]] } as never);
+    projection.fitExtent([[sideMargin, isPhone ? 8 : 16], [size.width - sideMargin, size.height - sideMargin]], { type: 'MultiPoint', coordinates: [[-169, -55], [-169, 73], [190, -55], [190, 73]] } as never);
     drawing.attr('viewBox', `0 0 ${size.width} ${size.height}`);
     land.selectAll<SVGPathElement, PlaceOutline>('path').attr('d', place => outlinePath(place.geometry as never));
     zoomBehaviour.translateExtent([[0, 0], [size.width, size.height]]).extent([[0, 0], [size.width, size.height]]);
@@ -137,7 +142,7 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
     const corners = mapAreas[areaName]?.southWestAndNorthEast;
     if (!corners) return isPhoneWidth() ? worldOnPhone() : zoomIdentity;
     const [left, bottom] = projection(corners[0])!, [right, top] = projection(corners[1])!;
-    const isPhone = isPhoneWidth(), marginAbove = isPhone ? 52 : 64, margin = isPhone ? 10 : 28;
+    const isPhone = isPhoneWidth(), marginAbove = isPhone ? 16 : 32, margin = isPhone ? 10 : 28;
     const k = Math.min(deepestZoom, (size.width - 2 * margin) / (right - left), (size.height - marginAbove - margin) / (bottom - top));
     return zoomIdentity.translate(size.width / 2 - k * (left + right) / 2, (size.height + marginAbove - margin) / 2 - k * (top + bottom) / 2).scale(k);
   }

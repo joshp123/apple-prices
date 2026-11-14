@@ -10,6 +10,8 @@
   "dependencies": {
     "@bufbuild/protobuf": "^2.17.0",
     "@resvg/resvg-wasm": "^2.6.2",
+    "@ui-sdk/core": "^0.1.0-beta.2",
+    "@ui-sdk/web": "^0.1.0-beta.2",
     "country-to-currency": "^3.0.2",
     "d3-geo": "^3.1.2",
     "d3-selection": "^3.0.1",

@@ -27,7 +27,6 @@ export function productPhotoHtml(photo: ProductPhoto, boxPixels: number): string
 
 const icon = (path: string) => `<svg class="icon" viewBox="0 0 12 12" aria-hidden="true"><path d="${path}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 export const icons = {
-  chevronDown: icon('M2.5 4.5 6 8l3.5-3.5'),
   close: icon('m2.5 2.5 7 7m0-7-7 7'),
   plus: icon('M6 2v8M2 6h8'),
   minus: icon('M2 6h8'),

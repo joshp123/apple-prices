@@ -5,16 +5,9 @@ import type { ComparisonRole, PriceComparison, Selection } from '../src/price-co
 export type RoleWording = Record<ComparisonRole, string>;
 export const roleWordingOnPage: RoleWording = { cheapest: 'Cheapest', visitor: 'You', compared: 'Compared with', 'most-expensive': 'Most expensive' };
 
-export type OpenPanel = 'product' | 'configuration' | 'currency' | 'visitor-place' | 'compared-place' | 'about-prices' | 'share' | null;
-
 export type PageState = Selection & {
-  mapArea: string;
+  // The place whose pop-up is open on the map.
   popUpPlaceCode: string | null;
-  openPanel: OpenPanel;
-  // The place list shows only this country's states or provinces until the visitor searches or asks for every place.
-  placeListCountryCode: string | null;
-  // What else changed when one spec was chosen: "Storage changed to 1TB."
-  specChangeNote: string;
   // The visitor's own words for the post, kept exactly as typed, even when empty. Not typed yet: the sentence the page suggests.
   shareTextAsTyped: string | null;
   locationProblem: string;
@@ -31,6 +24,5 @@ export type PageView = {
   // "you", or "the Netherlands" for a shared place: "$434 less than you".
   visitorInComparisons: string;
 };
-
 
 export const isPhoneWidth = () => matchMedia('(max-width: 720px)').matches;
