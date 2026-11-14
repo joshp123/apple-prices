@@ -6,7 +6,7 @@ A world map of Apple hardware prices, including tax.
 
 The public ChatGPT Site is identified by `.openai/hosting.json`. DNS is managed in `opentofu-infra/websites/jjpcodes.com`.
 
-From a clean checkout with the snapshot committed, install dependencies and build using the project environment:
+From a clean checkout after committing changes, install dependencies and build using the project environment:
 
 ```sh
 devenv shell -- npm ci --prefix hosting
