@@ -28,12 +28,17 @@ const selectHtml = (id: string, label: string, buttonClass: string, shownValue =
     <ui-select-content hidden class="list" side-offset="6" align="start"></ui-select-content>
   </ui-select>`;
 
+// Two cards over the map: what is priced, and the currency and Share. On a phone they make one card of two rows.
 export const productBarHtml = `
-  <div class="bar-photo" aria-hidden="true"></div>
-  <div class="bar-cell bar-product">${selectHtml('product-select', 'Product', 'control-product')}</div>
-  <div class="bar-cell bar-configuration">${selectHtml('configuration-select', 'Configuration', 'control-configuration', '<span class="specs-in-full"></span><span class="specs-in-short"></span>')}<p class="bar-specs"></p></div>
-  <div class="bar-cell bar-currency">${selectHtml('currency-select', 'Prices in', 'control-currency')}</div>
-  <div class="bar-cell bar-share"><ui-dialog-trigger for="share-dialog"><button type="button" class="control control-primary">${icons.share}<span>Share</span></button></ui-dialog-trigger></div>`;
+  <div class="bar-group bar-what">
+    <div class="bar-photo" aria-hidden="true"></div>
+    <div class="bar-cell bar-product">${selectHtml('product-select', 'Product', 'control-product')}</div>
+    <div class="bar-cell bar-configuration">${selectHtml('configuration-select', 'Configuration', 'control-configuration', '<span class="specs-in-full"></span><span class="specs-in-short"></span>')}<p class="bar-specs"></p></div>
+  </div>
+  <div class="bar-group bar-how">
+    <div class="bar-cell bar-currency">${selectHtml('currency-select', 'Prices in', 'control-currency')}</div>
+    <div class="bar-cell bar-share"><ui-dialog-trigger for="share-dialog"><button type="button" class="control control-primary">${icons.share}<span>Share</span></button></ui-dialog-trigger></div>
+  </div>`;
 
 // The label shows in the closed control; the words and the amount show in the list.
 const itemHtml = (value: string, label: string, amount: string, words = label) => `<ui-select-item value="${escapeHtml(value)}" label="${escapeHtml(label)}">

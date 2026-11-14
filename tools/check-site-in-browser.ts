@@ -99,8 +99,8 @@ const pageStates: [name: string, address: string, countryOpenedIn?: string, acti
   ['38-california-compared-with-ontario', '/?me=US-CA&vs=CA-ON'],
   ['39-share', '/?me=NL&vs=JP', undefined, page => page.getByRole('button', { name: 'Share' }).click()],
   ['40-share-palestine', '/?me=PS', undefined, page => page.getByRole('button', { name: 'Share' }).click()],
-  ['43-prices-include-tax', '/?me=NL', undefined, page => page.getByRole('button', { name: 'Including tax' }).click()],
-  ['44-california-sales-tax', '/?me=US-CA', undefined, page => page.getByRole('button', { name: /^Including [\d.]+% sales tax/ }).click()],
+  ['43-prices-include-tax', '/?me=NL', undefined, page => page.getByRole('button', { name: 'About these prices' }).click()],
+  ['44-california-sales-tax', '/?me=US-CA', undefined, page => openPlace(page, 'US-CA')],
   ['48-shared-link-opened-in-another-country', '/iphone-18-pro/6.3in-256gb?me=NL', 'DE'],
   ['49-range-in-dong-against-a-province', '/macbook-pro/16in-m5-max-18cpu-32gpu-36gb-memory-2000gb-standard-glass?me=US&vs=CA-NT&in=VND'],
   ['50-canada-range-compared-with-the-united-states', '/?me=CA&vs=US'],
@@ -145,30 +145,43 @@ const newContext = (size: SizeName, colorScheme: 'light' | 'dark' = 'light', ext
 });
 const laptopContext = () => newContext('laptop', 'light', { acceptDownloads: true, permissions: ['clipboard-read', 'clipboard-write'] });
 
-// Each row of the answer (what the column is, the place, the local money, the note, the bar) has its first line of text, or its bar,
-// at the same height in every column beside it.
+// In the answer, places side by side have their roles, their names and their prices on one line each; and within a place, the role,
+// the flag and the price start at the same inset (on a laptop the price is set to the right, so only the role and the flag are compared).
 async function misalignedRows(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     const problems: string[] = [];
-    const firstLineTop = (part: Element) => {
-      if (part.matches('.column-meter')) return Math.round(part.getBoundingClientRect().top);
-      const walker = document.createTreeWalker(part, NodeFilter.SHOW_TEXT), tops: number[] = [];
+    const textBox = (part: Element | null) => {
+      if (!part) return null;
+      const walker = document.createTreeWalker(part, NodeFilter.SHOW_TEXT), boxes: DOMRect[] = [];
       for (let text = walker.nextNode(); text; text = walker.nextNode()) {
         if (!text.textContent!.trim()) continue;
         const range = document.createRange();
         range.selectNodeContents(text);
-        tops.push(...[...range.getClientRects()].filter(line => line.height > 0).map(line => line.top));
+        boxes.push(...[...range.getClientRects()].filter(line => line.height > 0));
       }
-      return Math.round(Math.min(...tops));
+      return boxes.length ? { top: Math.round(Math.min(...boxes.map(box => box.top))), left: Math.round(Math.min(...boxes.map(box => box.left))), bottom: Math.round(Math.max(...boxes.map(box => box.bottom))) } : null;
     };
-    for (const row of ['role', 'place', 'local', 'note', 'meter']) {
-      const tops = [...document.querySelectorAll(`.column-${row}`)].map(part => ({ top: firstLineTop(part) })).filter(({ top }) => Number.isFinite(top));
-      const byVisualRow = Object.groupBy(tops, ({ top }) => String(Math.round(top / 60)));
-      for (const sameRow of Object.values(byVisualRow)) if (new Set(sameRow!.map(({ top }) => top)).size > 1) problems.push(`${row}: ${sameRow!.map(({ top }) => top).join(', ')}`);
+    const columns = [...document.querySelectorAll('.column')];
+    const rows = Object.values(Object.groupBy(columns, column => String(Math.round(column.getBoundingClientRect().top))));
+    for (const row of rows) for (const [part, edge] of [['.column-role', 'top'], ['.place-words', 'top'], ['.amount', 'bottom']] as const) {
+      const edges = row!.map(column => textBox(column.querySelector(part))?.[edge]).filter(value => value !== undefined);
+      if (Math.max(...edges) - Math.min(...edges) > 1) problems.push(`${part} ${edge}: ${edges.join(', ')}`);
+    }
+    for (const column of columns) {
+      const flag = column.querySelector<HTMLElement>('.column-place .flag');
+      if (!flag?.offsetParent) continue;
+      const roleLeft = textBox(column.querySelector('.column-role'))?.left, flagLeft = Math.round(flag.getBoundingClientRect().left);
+      if (roleLeft !== undefined && Math.abs(roleLeft - flagLeft) > 1) problems.push(`${column.className}: role at ${roleLeft}, flag at ${flagLeft}`);
     }
     return problems;
   });
 }
+
+// How much of the screen's height shows the map: what the bar at the top and the answer at the bottom leave between them.
+const mapShareOfScreen = (page: Page) => page.evaluate(() => (document.querySelector('#answer')!.getBoundingClientRect().top - document.querySelector('#bar')!.getBoundingClientRect().bottom) / innerHeight);
+// The first view of a place with a price, and the least while the answer carries a notice, such as choosing a state.
+const leastMapShare: Record<SizeName, number> = { laptop: 0.8, 'short-laptop': 0.74, phone: 0.7 };
+const leastMapShareWithNotice: Record<SizeName, number> = { laptop: 0.77, 'short-laptop': 0.68, phone: 0.62 };
 
 async function photographEveryState(): Promise<void> {
   for (const sizeName of Object.keys(sizes) as SizeName[]) for (const colorScheme of ['light', 'dark'] as const) {
@@ -185,8 +198,10 @@ async function photographEveryState(): Promise<void> {
         check(`${sizeName} ${name} fits one screen`, overflow.down <= 0, `${overflow.down}px`);
         const problems = await misalignedRows(page);
         check(`${sizeName} ${name}: the answer's rows line up`, !problems.length, problems.join('; '));
-        const mapHeight = await page.locator('#map').evaluate(map => map.getBoundingClientRect().height);
-        check(`${sizeName} ${name}: the map has room`, mapHeight >= (sizeName === 'phone' ? 300 : 380), `${mapHeight}px`);
+        const mapShare = await mapShareOfScreen(page), hasNotice = await page.locator('.band-notice').isVisible();
+        const least = (hasNotice ? leastMapShareWithNotice : leastMapShare)[sizeName];
+        check(`${sizeName} ${name}: the map has at least ${Math.round(least * 100)}% of the screen`, mapShare >= least, `${Math.round(mapShare * 100)}%`);
+        if (name.startsWith('01-')) console.log(`     map share of the screen: ${Math.round(mapShare * 1000) / 10}%`);
       }
       if (action) {
         await action(page);
@@ -229,7 +244,7 @@ function checkShareCardText(): void {
   }
 }
 
-const price = (page: Page, role: string) => page.locator(`.column-${role} .column-price`).innerText();
+const price = async (page: Page, role: string) => (await page.locator(`.column-${role} .amounts`).innerText()).replace('*', '').replace(/\s+/g, ' ').trim();
 
 async function journeyByMouse(): Promise<void> {
   const context = await laptopContext();
@@ -359,7 +374,7 @@ async function journeyByKeyboard(): Promise<void> {
   await page.keyboard.press('+');
   await page.keyboard.press('ArrowRight');
   check('plus and arrow keys zoom and move the map', await page.locator('.map-land').getAttribute('transform') !== landBefore);
-  check('the map key shows the cheapest and dearest price and says US states are averages', /^\$[\d,]+\$[\d,]+NopricefromAppleUSstates:population-weightedaveragesalestax$/.test((await page.locator('.map-key').innerText()).replace(/\s/g, '')), await page.locator('.map-key').innerText());
+  check('the map key shows the cheapest and dearest price and says US states are averages', /^\$[\d,]+\$[\d,]+NopricefromApple\*USstates:population-weightedaveragesalestaxAbouttheseprices$/.test((await page.locator('.map-key').innerText()).replace(/\s/g, '')), await page.locator('.map-key').innerText());
   await context.close();
 }
 
@@ -373,9 +388,9 @@ async function journeysAboutPlace(): Promise<void> {
   await page.keyboard.press('Escape');
   const requestsBefore: string[] = [];
   page.on('request', request => requestsBefore.push(request.url()));
-  await page.locator('.column-visitor').getByRole('button', { name: 'Use my location' }).click();
+  await page.locator('#answer').getByRole('button', { name: 'Use my location' }).click();
   await page.waitForURL(/me=US-OR/);
-  check('Use my location finds the state', page.url().includes('me=US-OR') && (await answerText(page)).includes('No sales tax'));
+  check('Use my location finds the state', page.url().includes('me=US-OR') && (await price(page, 'visitor')) === '$1,199');
   check('the position is sent nowhere', !requestsBefore.some(address => address.includes('45.5') || address.includes('122.6')), requestsBefore.join(' '));
   await withLocation.close();
   const inToronto = await browser.newContext({ viewport: laptop, reducedMotion: 'reduce', geolocation: toronto, permissions: ['geolocation'] });
@@ -389,14 +404,15 @@ async function journeysAboutPlace(): Promise<void> {
 
   const withoutLocation = await browser.newContext({ viewport: laptop, reducedMotion: 'reduce', permissions: [] });
   page = await openPage(withoutLocation, '/', 'US');
-  await page.locator('.column-visitor').getByRole('button', { name: 'Use my location' }).click();
+  await page.locator('#answer').getByRole('button', { name: 'Use my location' }).click();
   await page.waitForFunction(() => document.querySelector('#answer')!.textContent!.includes('did not share'));
   check('a refused location says so and offers the list', (await answerText(page)).includes('Your browser did not share your location. Choose your place from the list.'));
   await page.getByRole('button', { name: 'Choose your state' }).click();
   await page.getByRole('option', { name: /^California, United States/ }).click();
   check('the state can be chosen from the list instead', page.url().includes('me=US-CA') && (await price(page, 'visitor')) === '$1,322', page.url());
-  await page.getByRole('button', { name: /^Including [\d.]+% sales tax/ }).click();
-  check('a state’s tax details say it is the population-weighted average', (await page.locator('.pop-up-of-tax').innerText()).includes('(population-weighted average)'));
+  await openPlace(page, 'US-CA');
+  check('a state’s pop-up says its tax is the population-weighted average', (await placePopUp(page).innerText()).includes('(population-weighted average)'));
+  check('a state’s price is marked as an estimate, and the key says what the mark means', (await page.locator('.column-visitor .amounts').innerText()).endsWith('*') && (await page.locator('.map-key').innerText()).includes('* US states: population-weighted average sales tax'));
   await page.keyboard.press('Escape');
 
   page = await openPage(withoutLocation, '/iphone-18-pro/6.3in-256gb?me=NL', 'DE');

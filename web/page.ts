@@ -7,7 +7,7 @@ import { canCompareWith, priceComparison, type PriceComparison } from '../src/pr
 import { selectionFromShareLink, shareLinkPath } from '../src/share-link.ts';
 import { specLine } from '../src/spec-words.ts';
 import { answerHtml, drawAnswer, placeListHtml, placePicker, type PlacePickerPurpose } from './answer.ts';
-import { roleWordingOnPage, type PageState, type PageView } from './page-view.ts';
+import { isPhoneWidth, roleWordingOnPage, type PageState, type PageView } from './page-view.ts';
 import { placePopUpHtml, popUpsHtml, postOnXLink, shareDialogHtml, shareLink } from './pop-ups.ts';
 import { createPriceMap, mapAreas, type PriceMap } from './price-map.ts';
 import { currencyWords, drawProductBar, productBarHtml } from './product-bar.ts';
@@ -20,7 +20,8 @@ const element = <E extends HTMLElement>(selector: string) => document.querySelec
 const bar = element('#bar'), answer = element('#answer'), mapBox = element('#map'), popUps = element('#pop-ups');
 
 let snapshot: PriceSnapshot, state: PageState, comparison: PriceComparison, priceMap: PriceMap;
-let mapArea = 'world';
+// On a phone the map opens on the places the answer names, which a whole world would show too small; elsewhere on the world.
+let mapArea = isPhoneWidth() ? 'named-places' : 'world';
 // "World" appears once the map shows anything else, and takes it back.
 function setMapArea(area: string): void {
   mapArea = area;
@@ -78,6 +79,8 @@ function change(changes: Partial<PageState>): void {
   const pricesChanged = chosenPrices() !== pricesBefore;
   if (pricesChanged) state.shareTextAsTyped = null;
   drawEverything();
+  // Until the visitor moves the map themselves, it keeps the places the answer names in view as they change.
+  if (pricesChanged && mapArea === 'named-places') showMapArea(true);
   // A new choice of prices is a step Back can undo.
   if (pricesChanged) history.pushState(null, '', shareLinkPath(state));
 }
@@ -233,16 +236,30 @@ addEventListener('popstate', () => {
   drawEverything();
 });
 
-// The map takes whatever the bar and the answer leave, which changes with the window and with what the answer says.
+// The map fills the screen under the bar and the answer, which sit on it; it fits the world, and its key and zoom, into what they leave.
 let redrawForNewSize = 0;
-new ResizeObserver(() => {
+function fitMapToWhatIsUncovered(): void {
+  if (!priceMap) return;
+  const mapBoxOnPage = mapBox.getBoundingClientRect();
+  const top = Math.max(0, Math.round(bar.getBoundingClientRect().bottom - mapBoxOnPage.top));
+  const bottom = Math.max(0, Math.round(mapBoxOnPage.bottom - answer.getBoundingClientRect().top));
+  mapBox.style.setProperty('--covered-top', `${top}px`);
+  mapBox.style.setProperty('--covered-bottom', `${bottom}px`);
+  priceMap.setCovered(top, bottom);
+  if (!priceMap.fitToContainer()) return;
+  priceMap.buildLabels(view());
+  showMapArea(false);
+}
+
+function showMapArea(isAnimated: boolean): void {
+  if (mapArea === 'named-places') priceMap.showPlaces(comparison.columns.map(column => column.placeCode), isAnimated);
+  else priceMap.showArea(mapAreas[mapArea] ? mapArea : 'world', isAnimated);
+}
+const coverWatcher = new ResizeObserver(() => {
   cancelAnimationFrame(redrawForNewSize);
-  redrawForNewSize = requestAnimationFrame(() => {
-    if (!priceMap?.fitToContainer()) return;
-    priceMap.buildLabels(view());
-    priceMap.showArea(mapAreas[mapArea] ? mapArea : 'world', false);
-  });
-}).observe(mapBox);
+  redrawForNewSize = requestAnimationFrame(fitMapToWhatIsUncovered);
+});
+for (const watched of [mapBox, bar, answer]) coverWatcher.observe(watched);
 
 // ---------- starting ----------
 
@@ -263,9 +280,8 @@ try {
   listenToControls();
   priceMap = createPriceMap(mapBox, mapPlaces, placeCode => (placeCode ? openPlacePopUp(placeCode) : closePlacePopUp()), () => setMapArea('moved-by-hand'));
   drawEverything();
-  priceMap.fitToContainer();
-  priceMap.buildLabels(view());
-  priceMap.showArea(mapArea, false);
+  setMapArea(mapArea);
+  fitMapToWhatIsUncovered();
   history.replaceState(null, '', shareLinkPath(state));
   document.documentElement.dataset.page = 'ready';
   findOpenerCountry().catch(problem => console.error('Could not find the opener’s country', problem));

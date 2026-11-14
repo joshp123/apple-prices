@@ -1,4 +1,4 @@
-/* Hallmark · v2.0.0 · theme: custom (Apple's system font, ui-sdk's controls themed through --ui-* tokens) · genre: modern-minimal · shape: app screen · job: compare · posture: restrained · surface: plain · nav: one bar of the kit's selects · footer: none, the page is one screen · signature: four aligned columns, each with a bar of its price against the most expensive in the map's colour */
+/* Hallmark · v2.0.0 · theme: custom (Apple's system font, ui-sdk's controls themed through --ui-* tokens) · genre: modern-minimal · shape: app screen · job: compare · posture: restrained · surface: plain · nav: two floating cards of the kit's selects · footer: none, the page is one screen · signature: the map is the page; the four places float on it in one card, each price marked with its map colour */
 @layer ui-sdk;
 @import "@ui-sdk/core/web.css";
 
@@ -44,6 +44,10 @@
   --radius-surface: 12px;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --flag-width: 27px;
+  --float-gap: var(--space-4);
+  --radius-float: 14px;
+  --float: color-mix(in oklab, var(--raised) 86%, transparent);
+  --shadow-float: 0 0 0 0.5px oklch(0.25 0.01 265 / 0.12), 0 6px 24px -6px oklch(0.25 0.02 265 / 0.22);
 
   --ui-background: var(--raised);
   --ui-foreground: var(--ink);
@@ -82,6 +86,7 @@
     --scrim: oklch(0 0 0 / 0.55);
     --shadow-label: 0 0 0 0.5px oklch(1 0 0 / 0.12), 0 1px 3px oklch(0 0 0 / 0.5);
     --shadow-menu: 0 0 0 0.5px oklch(1 0 0 / 0.12), 0 12px 32px -4px oklch(0 0 0 / 0.6);
+    --shadow-float: 0 0 0 0.5px oklch(1 0 0 / 0.12), 0 6px 24px -6px oklch(0 0 0 / 0.6);
   }
 }
 
@@ -145,67 +150,62 @@ button { margin: 0; padding: 0; border: 0; background: none; cursor: pointer; te
 }
 .control:active { transform: scale(0.98); }
 
-/* The bar */
-.bar {
-  display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto auto; grid-template-areas: "photo product configuration currency share";
-  align-items: center; column-gap: var(--space-3); min-block-size: 64px; padding: var(--space-3) var(--page-margin); border-block-end: 1px solid var(--rule); background: var(--paper);
-}
-.bar-photo { grid-area: photo; display: flex; }
-.bar-product { grid-area: product; }
-.bar-configuration { grid-area: configuration; }
-.bar-currency { grid-area: currency; }
-.bar-share { grid-area: share; }
+/* The map is the page: it fills the screen, and everything else floats on it in cards of frosted paper. */
+body { display: block; position: relative; }
+.stage { position: absolute; inset: 0; }
+.floating { background: var(--float); -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4); border-radius: var(--radius-float); box-shadow: var(--shadow-float); }
+
+/* The bar: what is priced on the left, the currency and Share on the right, with the map showing between them. */
+.bar { position: absolute; z-index: 2; inset-block-start: var(--float-gap); inset-inline: var(--float-gap); display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3); pointer-events: none; }
+.bar-group { display: flex; align-items: center; gap: var(--space-2); min-inline-size: 0; padding: var(--space-2); pointer-events: auto; background: var(--float); -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4); border-radius: var(--radius-float); box-shadow: var(--shadow-float); }
+.bar-what { flex: 0 1 auto; }
+.bar-how { flex: none; }
+.bar-photo { display: flex; padding-inline: var(--space-1); }
 .bar-cell { display: flex; align-items: center; min-inline-size: 0; }
 .control-product { font-weight: 600; }
 .specs-in-short { display: none; }
-.bar-specs { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-specs { padding-inline: var(--space-2); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-specs:empty { display: none; }
 .product-photo { display: grid; place-items: center; flex: none; }
 .product-photo-crop { position: relative; display: block; overflow: hidden; mix-blend-mode: multiply; }
 .product-photo-crop > img { position: absolute; inset-block-start: 0; inset-inline-start: 0; max-inline-size: none; transform-origin: 0 0; }
 @media (prefers-color-scheme: dark) { .product-photo-crop { mix-blend-mode: normal; border-radius: 6px; } }
 
-.stage { display: grid; grid-template-rows: auto minmax(0, 1fr); min-block-size: 0; }
-
-/* The answer: four equal columns whose rows line up across the page, because each column is a subgrid of the band's rows. */
-.band {
-  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(6, auto); column-gap: var(--column-gap);
-  padding: var(--space-5) var(--page-margin); border-block-end: 1px solid var(--rule);
+/* The answer: one card along the bottom of the map, the four places side by side. In every place the role, the flag and the price
+   start at the same distance from its edge, and the four prices share a baseline. */
+.answer { position: absolute; z-index: 2; inset-inline: var(--float-gap); inset-block-end: var(--float-gap); background: var(--float); -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4); border-radius: var(--radius-float); box-shadow: var(--shadow-float); }
+/* The band's two rows are shared by every place, so roles sit on one line and names and prices on another. */
+.band { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: auto auto; }
+.answer { container-type: inline-size; }
+.column { position: relative; display: grid; grid-row: span 2; grid-template-rows: subgrid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "role role" "place price"; align-items: start; column-gap: var(--space-3); row-gap: 2px; min-inline-size: 0; padding: 6px var(--space-4) var(--space-2) var(--space-3); }
+.column + .column::before { content: ""; position: absolute; inset-block: var(--space-3); inset-inline-start: 0; border-inline-start: 1px solid var(--rule); }
+.column-role { grid-area: role; padding-inline-start: var(--space-2); font-size: var(--text-small); color: var(--ink-2); white-space: nowrap; }
+.column-place { grid-area: place; display: flex; min-inline-size: 0; }
+/* A place's name is a quiet button; the visitor's and the compared place's open their lists, and say so with a chevron. */
+.column-place .control, .place-name { --flag-width: 22px; --ui-icon-size: 14px; display: inline-flex; align-items: center; gap: var(--space-2); min-inline-size: 0; max-inline-size: 100%; block-size: 32px; padding-inline: var(--space-2); border: 0; border-radius: var(--radius-control); background: transparent; font-size: var(--text-body); font-weight: 600; letter-spacing: -0.01em; }
+@media (hover: hover) and (pointer: fine) { .column-place .control:hover, .place-name:hover { background: var(--wash); } }
+.place-words { min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.column-price { grid-area: price; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; column-gap: var(--space-1); padding-block-start: 5px; line-height: 1.25; text-align: end; }
+.column-amount { display: inline-flex; align-items: baseline; gap: 6px; }
+.amounts { text-align: end; }
+.amounts .amount { font-size: var(--text-strong); font-weight: 600; letter-spacing: -0.01em; }
+.range-to { font-size: var(--text-label); color: var(--ink-2); }
+.estimate-mark { font-weight: 500; color: var(--ink-2); }
+.swatch { display: inline-block; flex: none; inline-size: 8px; block-size: 8px; border-radius: 50%; align-self: center; box-shadow: inset 0 0 0 0.5px var(--flag-edge); }
+.column-local { font-size: var(--text-label); color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.price-missing { font-size: var(--text-label); color: var(--ink-2); }
+/* Where four places side by side leave a name too little room, each place puts its price under its name, as on a phone. */
+@container (width < 1400px) {
+  .band { grid-template-rows: auto auto auto; }
+  .column { grid-row: span 3; grid-template-columns: minmax(0, 1fr); grid-template-areas: "role" "place" "price"; }
+  .column-price { justify-content: flex-start; padding-block-start: 0; padding-inline-start: var(--space-2); text-align: start; }
+  .amounts { text-align: start; }
 }
-.column { position: relative; display: grid; grid-row: span 6; grid-template-rows: subgrid; row-gap: 0; min-inline-size: 0; }
-.column + .column::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: calc(var(--column-gap) / -2); border-inline-start: 1px solid var(--rule); }
-.column-role { font-size: var(--text-label); color: var(--ink-2); }
-.column-place { display: flex; min-inline-size: 0; margin-block-start: var(--space-2); }
-.column-place .control, .place-name { --flag-width: 30px; gap: var(--space-2); block-size: 40px; font-size: var(--text-strong); font-weight: 600; letter-spacing: -0.01em; }
-/* A place that is shown, not chosen, has the picker's box without its border, so all four flags start the same distance in. */
-.place-name { display: inline-flex; align-items: center; min-inline-size: 0; max-inline-size: 100%; padding-inline: var(--space-3); border: 1px solid transparent; border-radius: var(--radius-control); }
-@media (hover: hover) and (pointer: fine) { .place-name:hover { background: var(--wash); } }
-.place-name .place-words { min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.column-price { align-self: last baseline; margin-block-start: var(--space-3); line-height: 1.05; }
-.column-price .amount { font-size: 36px; font-weight: 600; letter-spacing: -0.025em; }
-.band[data-amount-length="long"] .column-price .amount { font-size: 32px; }
-.band[data-amount-length="longer"] .column-price .amount { font-size: 28px; }
-.band[data-amount-length="longest"] .column-price .amount { font-size: 24px; }
-.column-price-range .amount { font-size: 24px !important; letter-spacing: -0.015em; }
-.range-to { font-size: var(--text-body); font-weight: 400; color: var(--ink-2); }
-.price-missing { display: block; font-size: var(--text-strong); font-weight: 600; line-height: 1.25; text-wrap: balance; }
-.price-missing-quiet { font-size: var(--text-body); font-weight: 400; line-height: 1.3; color: var(--ink-2); }
-/* With nothing to compare, the hint runs down into the column's own empty rows instead of making the price row taller for every column. */
-.column-price:has(.price-missing-quiet) { align-self: start; block-size: 0; overflow: visible; }
-.column-local { min-block-size: 1lh; margin-block-start: var(--space-1); color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.column-note { display: flex; flex-direction: column; gap: var(--space-1); min-block-size: 1lh; margin-block-start: var(--space-1); font-size: var(--text-label); color: var(--ink-2); text-wrap: pretty; }
-.note-actions { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); }
-.note-actions:empty { display: none; }
-.column-note .text-action { color: var(--ink); }
+.band-notice { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-4); padding: var(--space-2) var(--space-5); border-block-start: 1px solid var(--rule); font-size: var(--text-label); color: var(--ink-2); }
 .note-problem { color: var(--ink); }
-/* With nothing to compare, the column is only an invitation: as wide as its control, with no price bar. */
-.band:has(.column-compared.is-empty) { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) minmax(0, 1fr); }
-.column-compared.is-empty .column-meter { visibility: hidden; }
-.column-compared.is-empty .price-missing-quiet { font-size: var(--text-label); white-space: normal; }
-.column-meter { position: relative; align-self: end; block-size: 6px; margin-block-start: var(--space-3); border-radius: 3px; background: var(--wash); overflow: hidden; }
-.column-meter-fill { position: absolute; inset-block: 0; inset-inline-start: 0; inset-inline-end: calc(100% - var(--meter-end, 0%)); border-radius: 3px; background: linear-gradient(90deg, var(--meter-colour-start) var(--meter-colour-from, 100%), var(--meter-colour-end)); }
 
 /* The map fills the rest of the screen; its colour key and zoom sit inside it, on the page margin. */
-.map { position: relative; min-block-size: 0; overflow: hidden; background: var(--sea); }
+.map { position: absolute; inset: 0; overflow: hidden; background: var(--sea); }
 .map-drawing { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; touch-action: none; cursor: grab; }
 .map-drawing:active { cursor: grabbing; }
 .map-drawing:focus-visible { outline-offset: -3px; }
@@ -226,16 +226,17 @@ button { margin: 0; padding: 0; border: 0; background: none; cursor: pointer; te
 .map-label-of-visitor { background: var(--ink); color: var(--paper); }
 .map-label.is-lit { outline: 2px solid var(--focus); outline-offset: 1px; }
 .map-name { position: absolute; inset-block-start: 0; inset-inline-start: 0; font-size: 11px; line-height: 1.2; color: var(--ink-2); white-space: nowrap; }
-.map-zoom { position: absolute; inset-block-end: var(--space-4); inset-inline-end: var(--page-margin); display: flex; flex-direction: column; gap: var(--space-2); }
+.map-zoom { position: absolute; inset-block-end: calc(var(--covered-bottom, 0px) + var(--space-3)); inset-inline-end: var(--float-gap); display: flex; flex-direction: column; gap: var(--space-2); }
 .map-zoom { align-items: flex-end; }
 .map-zoom .icon-button { background: var(--raised); box-shadow: var(--shadow-label); }
 .map-world { block-size: 32px; padding-inline: var(--space-3); border-color: transparent; box-shadow: var(--shadow-label); font-size: var(--text-label); font-weight: 500; }
 /* The key keeps a backdrop of sea, so its words stay readable when land is zoomed in behind it. */
-.map-key { position: absolute; inset-block-end: var(--space-4); inset-inline-start: calc(var(--page-margin) - var(--space-2)); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-2); border-radius: var(--radius-control); background: color-mix(in oklab, var(--sea) 88%, transparent); font-size: var(--text-small); color: var(--ink-2); pointer-events: none; }
+.map-key { position: absolute; inset-block-end: calc(var(--covered-bottom, 0px) + var(--space-3)); inset-inline-start: var(--float-gap); max-inline-size: calc(100% - 2 * var(--float-gap) - 140px); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-2); border-radius: var(--radius-control); background: color-mix(in oklab, var(--sea) 88%, transparent); font-size: var(--text-small); color: var(--ink-2); pointer-events: none; }
 .map-key .amount { color: var(--ink); font-weight: 500; }
 .key-band { inline-size: 96px; block-size: 6px; border-radius: 3px; box-shadow: inset 0 0 0 0.5px var(--flag-edge); }
 .key-no-price { display: inline-flex; align-items: center; gap: var(--space-1); margin-inline-start: var(--space-3); }
 .key-estimate { margin-inline-start: var(--space-3); }
+.map-key ui-popover-trigger, .key-about { margin-inline-start: var(--space-3); pointer-events: auto; color: var(--ink-2); }
 
 /* Lists: the kit's select and combobox popups, with each choice's price beside it. */
 .list { min-inline-size: max(var(--anchor-width), 280px); max-block-size: min(var(--available-height), 520px); padding: var(--space-1); border-radius: var(--radius-surface); box-shadow: var(--shadow-menu); font-size: var(--text-body); }
@@ -300,62 +301,60 @@ button { margin: 0; padding: 0; border: 0; background: none; cursor: pointer; te
 .pop-up[data-presentation="sheet"] .control { block-size: 44px; }
 
 /* Before the prices load, and without JavaScript, the answer is the sentence the server wrote. */
-.answer-from-server { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); padding: var(--space-5) var(--page-margin); }
+.answer-from-server { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); padding: var(--space-4) var(--space-5); }
 .answer-from-server h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.2; }
 .answer-from-server p { color: var(--ink-2); max-inline-size: 60ch; }
-.bar:empty { min-block-size: 64px; }
+.answer-from-server h1 { font-size: var(--text-title, 21px); }
 
-/* Phone: the bar in two rows whose right-hand controls share one width, the four columns two by two, and the map below. */
+/* Phone: the bar is one card of two rows at the top; the answer is one card of four lines at the bottom, whose roles, places, prices
+   and local money each form a column; the map has the rest of the screen. */
 @media (max-width: 720px) {
-  :root { --page-margin: var(--space-4); --column-gap: var(--space-3); }
-  body { min-block-size: 0; overflow: hidden auto; }
-  :root { --control-height: 44px; }
+  :root { --page-margin: var(--space-4); --float-gap: var(--space-2); --control-height: 38px; }
   .bar {
-    grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "photo product share" "photo configuration currency";
-    gap: var(--space-2) var(--space-2); min-block-size: 0; padding-block: max(var(--space-2), env(safe-area-inset-top)) var(--space-2);
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "photo product share" "photo configuration currency";
+    gap: var(--space-1) 6px; inset-block-start: max(var(--float-gap), env(safe-area-inset-top)); padding: 5px; pointer-events: auto;
+    background: var(--float); -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4); border-radius: var(--radius-float); box-shadow: var(--shadow-float);
   }
-  .bar-photo { align-self: center; }
-  .control-product, .control-configuration { block-size: auto; min-block-size: var(--control-height); padding-block: var(--space-1); line-height: 1.2; white-space: normal; }
+  .bar-group { display: contents; }
+  .bar-photo { grid-area: photo; align-self: center; }
+  .bar-product { grid-area: product; } .bar-configuration { grid-area: configuration; } .bar-currency { grid-area: currency; } .bar-share { grid-area: share; }
+  .control-product, .control-configuration { block-size: auto; min-block-size: var(--control-height); padding-block: 2px; line-height: 1.15; white-space: normal; }
   .control-product ui-select-value { white-space: normal; }
+  .control-configuration { font-size: var(--text-label); }
   .specs-in-full { display: none; }
   .specs-in-short { display: block; }
   .bar-cell > ui-select, .bar-cell > ui-dialog-trigger, .bar-cell .control { flex: 1; inline-size: 100%; }
   .bar-currency .control, .bar-share .control { justify-content: center; }
-  .band, .band:has(.column-compared.is-empty) { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(12, auto); padding-block: var(--space-2) var(--space-3); }
-  .column-cheapest, .column-most-expensive { margin-block-start: var(--space-3); padding-block-start: var(--space-2); border-block-start: 1px solid var(--rule); }
-  .column-cheapest::before { display: none; }
-  /* With nothing to compare, the visitor's column takes the width and the comparison is one compact row below it, until a place is chosen. */
-  .band:has(.column-compared.is-empty) { grid-template-rows: repeat(13, auto); }
-  .band:has(.column-compared.is-empty) .column-visitor { grid-column: 1 / -1; }
-  .column-compared.is-empty { grid-column: 1 / -1; grid-row: span 1; display: flex; align-items: center; gap: var(--space-3); margin-block-start: var(--space-2); padding-block-start: var(--space-2); border-block-start: 1px solid var(--rule); }
-  .column-compared.is-empty::before, .column-compared.is-empty :is(.column-price, .column-local, .column-note, .column-meter) { display: none; }
-  .column-compared.is-empty .column-place { margin-block-start: 0; }
-  .column-most-expensive::before { inset-block-start: var(--space-2); }
-  .column-place .flag-empty { display: none; }
-  .price-missing-quiet { font-size: var(--text-label); }
-  .column-place { margin-block-start: var(--space-1); }
-  .column-place .control, .place-name { --flag-width: 22px; --ui-icon-size: 14px; gap: var(--space-1); block-size: var(--control-height); padding-inline: var(--space-2); font-size: var(--text-body); }
-  /* Links in the answer are a line of text; an invisible margin makes each a 44 pixel target without spreading the words apart. */
-  .text-action::after { content: ""; position: absolute; inset: -13px -4px; }
-  .note-actions { row-gap: var(--space-6); }
-  /* Beside another link, "Use my location" is its icon alone, so both fit one line; it keeps its name for screen readers. */
-  .note-actions > :not(:only-child) .words-of-icon { display: none; }
-  .icon-button { inline-size: 44px; block-size: 44px; }
-  .column-price { margin-block-start: var(--space-2); }
-  .column-price .amount, .band[data-amount-length] .column-price .amount { font-size: 26px; }
-  .band[data-amount-length="longer"] .column-price .amount, .band[data-amount-length="longest"] .column-price .amount, .column-price-range .amount { font-size: 18px !important; }
-  .price-missing { font-size: var(--text-body); }
-  .column-local { margin-block-start: 0; font-size: var(--text-label); }
-  .column-note { margin-block-start: 0; font-size: var(--text-label); }
-  .column-meter { block-size: 4px; margin-block-start: var(--space-2); }
-  .map { min-block-size: 220px; }
-  .map-zoom { flex-direction: row; align-items: center; inset-block-end: calc(max(var(--space-2), env(safe-area-inset-bottom)) + 52px); }
+  /* Controls are 40 pixels to keep the map large; an invisible margin makes every one a 44 pixel target. */
+  .control, .text-action { position: relative; }
+  .control::before, .text-action::after { content: ""; position: absolute; inset: -3px -2px; }
+  .text-action::after { inset: -13px -4px; }
+
+  .answer { inset-block-end: max(var(--float-gap), env(safe-area-inset-bottom)); }
+  /* Two by two: each place is its role, its name, then its price and local money, all starting at the same inset. */
+  .band { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(6, auto); }
+  .column { grid-row: span 3; grid-template-columns: minmax(0, 1fr); grid-template-areas: "role" "place" "price"; align-items: start; row-gap: 0; padding: 5px var(--space-2) 6px; }
+  .column:nth-child(odd)::before { display: none; }
+  .column:nth-child(n + 3) { border-block-start: 1px solid var(--rule); }
+  .column-role { padding-inline-start: var(--space-1); font-size: 11px; }
+  .column-place { align-self: start; }
+  .column-place .control, .place-name { --flag-width: 20px; --ui-icon-size: 12px; gap: 6px; block-size: 28px; padding-inline: var(--space-1); font-size: 14px; }
+  .column-place .control::before { inset: -6px 0; }
+  .column-price { justify-content: flex-start; padding-inline-start: var(--space-1); padding-block-start: 0; text-align: start; }
+  .amounts { text-align: start; }
+  .amounts .amount { font-size: var(--text-body); }
+  .column-local { font-size: var(--text-small); }
+  .column-compared.is-empty .column-place .flag-empty { display: none; }
+  .band-notice { padding: var(--space-1) var(--space-3) 6px; font-size: var(--text-small); }
+  .icon-button { inline-size: 40px; block-size: 40px; }
+  .map-zoom { inset-block-end: calc(var(--covered-bottom, 0px) + 6px); gap: 6px; }
+  .map-world { block-size: 40px; }
+  .map-key { inset-block-end: calc(var(--covered-bottom, 0px) + 6px); max-inline-size: calc(100% - 2 * var(--float-gap) - 52px); padding: 2px var(--space-2); font-size: 11px; }
   .key-estimate { flex-basis: 100%; margin-inline-start: 0; }
-  .map-world { block-size: 44px; }
-  .map-key { inset-block-end: max(var(--space-2), env(safe-area-inset-bottom)); }
+  .key-no-price { margin-inline-start: var(--space-1); }
   .map-label { --flag-width: 20px; font-size: 11px; }
   .map-label::before { content: ""; position: absolute; inset: -6px -2px; }
-  .key-band { inline-size: 64px; }
+  .key-band { inline-size: 48px; }
   .list-of-places { inline-size: auto; }
   .dialog-body { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); padding: var(--space-3) var(--page-margin) max(var(--space-4), env(safe-area-inset-bottom)); }
   .dialog-head { padding-inline-start: var(--page-margin); }

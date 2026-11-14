@@ -83,13 +83,15 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
       <g class="map-land"></g></svg>
     <svg class="map-leaders" aria-hidden="true"></svg><div class="map-labels"></div>
     <div class="map-zoom"><button type="button" class="control map-world" data-action="show-map-area" data-area="world" hidden>World</button><button type="button" class="icon-button" data-action="zoom-map" data-by="2" aria-label="Zoom in">${icons.plus}</button><button type="button" class="icon-button" data-action="zoom-map" data-by="0.5" aria-label="Zoom out">${icons.minus}</button></div>
-    <p class="map-key" aria-label="Map colours from the cheapest price to the most expensive"></p>`;
+    <div class="map-key"></div>`;
   const drawing = select<SVGSVGElement, unknown>(container.querySelector<SVGSVGElement>('.map-drawing')!);
   const land = drawing.select<SVGGElement>('.map-land');
   const labelsBox = container.querySelector<HTMLElement>('.map-labels')!, leadersBox = container.querySelector<SVGSVGElement>('.map-leaders')!;
   land.selectAll('path').data(places).join('path').attr('data-place', place => place.properties.placeCode);
 
   let size = { width: 0, height: 0 }, transform: ZoomTransform = zoomIdentity, labels: MapLabel[] = [], namedPlaceCodes: string[] = [];
+  // How much of the map the page's own cards cover at its top and bottom: the world fits between them and no label goes under them.
+  let covered = { top: 0, bottom: 0 }, fittedFor = '';
   const zoomBehaviour: ZoomBehavior<SVGSVGElement, unknown> = zoom<SVGSVGElement, unknown>().scaleExtent([1, deepestZoom]).on('zoom', event => {
     transform = event.transform;
     land.attr('transform', transform.toString()).style('--zoom', String(transform.k));
@@ -119,12 +121,14 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
     whenMovedByHand();
   });
 
-  // Fits the world to the container. True when the container's size had changed.
+  // Fits the world to the part of the container the cards leave uncovered. True when that had changed.
   function fitToContainer(): boolean {
-    if (container.clientWidth === size.width && container.clientHeight === size.height) return false;
+    const fitFor = [container.clientWidth, container.clientHeight, covered.top, covered.bottom].join(' ');
+    if (fitFor === fittedFor) return false;
+    fittedFor = fitFor;
     size = { width: container.clientWidth, height: container.clientHeight };
     const isPhone = isPhoneWidth(), sideMargin = isPhone ? 4 : 16;
-    projection.fitExtent([[sideMargin, isPhone ? 8 : 16], [size.width - sideMargin, size.height - sideMargin]], { type: 'MultiPoint', coordinates: [[-169, -55], [-169, 73], [190, -55], [190, 73]] } as never);
+    projection.fitExtent([[sideMargin, covered.top + (isPhone ? 8 : 16)], [size.width - sideMargin, size.height - covered.bottom - (isPhone ? 8 : 16)]], { type: 'MultiPoint', coordinates: [[-169, -55], [-169, 73], [190, -55], [190, 73]] } as never);
     drawing.attr('viewBox', `0 0 ${size.width} ${size.height}`);
     land.selectAll<SVGPathElement, PlaceOutline>('path').attr('d', place => outlinePath(place.geometry as never));
     zoomBehaviour.translateExtent([[0, 0], [size.width, size.height]]).extent([[0, 0], [size.width, size.height]]);
@@ -134,17 +138,36 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
   // On a tall phone map the whole world would sit in a thin band of sea; it is drawn up to a third larger instead,
   // trimming the far Pacific at both edges, and can be dragged.
   function worldOnPhone(): ZoomTransform {
-    const k = Math.min(1.35, size.height / (size.width / 2));
-    return k <= 1 ? zoomIdentity : zoomIdentity.translate(size.width / 2 * (1 - k), size.height / 2 * (1 - k)).scale(k);
+    const visibleHeight = size.height - covered.top - covered.bottom, middle = covered.top + visibleHeight / 2;
+    const k = Math.min(1.35, visibleHeight / (size.width / 2));
+    return k <= 1 ? zoomIdentity : zoomIdentity.translate(size.width / 2 * (1 - k), middle * (1 - k)).scale(k);
   }
 
   function transformThatShows(areaName: string): ZoomTransform {
     const corners = mapAreas[areaName]?.southWestAndNorthEast;
     if (!corners) return isPhoneWidth() ? worldOnPhone() : zoomIdentity;
     const [left, bottom] = projection(corners[0])!, [right, top] = projection(corners[1])!;
-    const isPhone = isPhoneWidth(), marginAbove = isPhone ? 16 : 32, margin = isPhone ? 10 : 28;
-    const k = Math.min(deepestZoom, (size.width - 2 * margin) / (right - left), (size.height - marginAbove - margin) / (bottom - top));
-    return zoomIdentity.translate(size.width / 2 - k * (left + right) / 2, (size.height + marginAbove - margin) / 2 - k * (top + bottom) / 2).scale(k);
+    const isPhone = isPhoneWidth(), margin = isPhone ? 10 : 28, marginAbove = covered.top + margin, marginBelow = covered.bottom + margin;
+    const k = Math.min(deepestZoom, (size.width - 2 * margin) / (right - left), (size.height - marginAbove - marginBelow) / (bottom - top));
+    return zoomIdentity.translate(size.width / 2 - k * (left + right) / 2, (size.height + marginAbove - marginBelow) / 2 - k * (top + bottom) / 2).scale(k);
+  }
+
+  // The view that frames these places, with room round them for their labels, but never further out than the whole world.
+  function transformThatFrames(placeCodes: string[]): ZoomTransform {
+    const points = placeCodes.map(code => labelPoints.get(code) ?? labelPoints.get(countryCodeOf(code))).filter(point => !!point).map(point => projection(point!)!);
+    const world = transformThatShows('world');
+    if (points.length < 2) return world;
+    const [left, right] = [Math.min(...points.map(([x]) => x)), Math.max(...points.map(([x]) => x))];
+    const [top, bottom] = [Math.min(...points.map(([, y]) => y)), Math.max(...points.map(([, y]) => y))];
+    const roomAcross = 72, roomDown = 40, visibleTop = covered.top + roomDown, visibleBottom = size.height - covered.bottom - roomDown;
+    const k = Math.max(world.k, Math.min(6, (size.width - 2 * roomAcross) / Math.max(1, right - left), (visibleBottom - visibleTop) / Math.max(1, bottom - top)));
+    return zoomIdentity.translate(size.width / 2 - k * (left + right) / 2, (visibleTop + visibleBottom) / 2 - k * (top + bottom) / 2).scale(k);
+  }
+
+  function showPlaces(placeCodes: string[], isAnimated: boolean): void {
+    const target = transformThatFrames(placeCodes);
+    if (isAnimated && !matchMedia('(prefers-reduced-motion: reduce)').matches) drawing.transition().duration(480).call(zoomBehaviour.transform, target);
+    else drawing.call(zoomBehaviour.transform, target);
   }
 
   function showArea(areaName: string, isAnimated: boolean): void {
@@ -176,7 +199,8 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
     const amount = (price: typeof cheapest) => formatMoney(amountInCurrency(comparison.snapshot, price, displayCurrencyCode), displayCurrencyCode, { shortenMillions: true });
     container.querySelector('.map-key')!.innerHTML = `<span class="amount">${amount(cheapest)}</span><span class="key-band" style="background:linear-gradient(90deg,${stops.join(',')})"></span><span class="amount">${amount(dearest)}</span>`
       + `<span class="key-no-price"><span class="swatch-no-price"></span>No price from Apple</span>`
-      + (comparison.prices.some(price => price.salesTaxRegion && price.additionalSalesTaxPercent && price.territoryCode.startsWith('US-')) ? `<span class="key-estimate">${usEstimateNote}</span>` : '');
+      + (comparison.prices.some(price => price.salesTaxRegion && price.additionalSalesTaxPercent && price.territoryCode.startsWith('US-')) ? `<span class="key-estimate">* ${usEstimateNote}</span>` : '')
+      + '<ui-popover-trigger for="tax-details"><button type="button" class="text-action key-about">About these prices</button></ui-popover-trigger>';
   }
 
   function buildLabels({ snapshot, comparison, roleWording }: PageView): void {
@@ -234,7 +258,7 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
       }
       for (const [dx, dy] of offsets) {
         const box = { left: x + dx - label.width / 2, top: y + dy - label.height / 2, right: x + dx + label.width / 2, bottom: y + dy + label.height / 2 };
-        if (box.left < 4 || box.right > size.width - 4 || box.top < 4 || box.bottom > size.height - 4) continue;
+        if (box.left < 4 || box.right > size.width - 4 || box.top < covered.top + 4 || box.bottom > size.height - covered.bottom - 4) continue;
         if (takenBoxes.some(taken => boxesTouch(box, taken, 4)) || leaders.some(leader => lineTouchesBox(leader, box))) continue;
         const isBesideItsPlace = dx !== 0 || dy !== 0;
         const leader: Line = { fromX: x, fromY: y, toX: x + dx - Math.sign(dx) * Math.min(Math.abs(dx), label.width / 2), toY: y + dy - Math.sign(dy) * Math.min(Math.abs(dy), label.height / 2) };
@@ -254,7 +278,8 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
   }
 
   return {
-    fitToContainer, showArea, colourPlaces, buildLabels,
+    fitToContainer, showArea, showPlaces, colourPlaces, buildLabels,
+    setCovered(top: number, bottom: number): void { covered = { top, bottom }; },
     zoomBy: (factor: number) => drawing.transition().duration(240).call(zoomBehaviour.scaleBy, factor),
     lightUp(placeCode: string | null): void {
       land.selectAll('path.is-lit').classed('is-lit', false);
