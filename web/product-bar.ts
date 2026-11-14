@@ -35,25 +35,25 @@ export function specChangeNote(product: Product, before: ProductConfiguration, a
     .map(name => `${specTitle(name)} changed to ${specValueWords(name, after.specs![name] as string | number)}.`).join(' ');
 }
 
+// Every choice on the page is the same control: its current value and a chevron, opening a list. Share is the one button.
 export function productBarHtml({ state, comparison }: PageView): string {
   const { product, configuration } = comparison;
   const specs = specLine(product, configuration), currencyCode = state.displayCurrencyCode;
-  const choicesInBar = listsWholeConfigurations(product) ? '' : `<div class="bar-spec-choices">${specChoicesHtml(product, configuration, false)}</div>`;
   const configurationPicker = product.configurations.length > 1
     ? `<button type="button" class="picker picker-configuration" data-action="open-panel" data-panel="configuration" data-focus="open-configuration" aria-haspopup="dialog" aria-expanded="${state.openPanel === 'configuration'}" aria-label="Configuration: ${escapeHtml(specs)}"><span class="picker-words">${escapeHtml(specs)}</span>${icons.chevronDown}</button>`
     : `<span class="bar-specs">${escapeHtml(specs)}</span>`;
   return `
     <div class="bar-product">
-      ${productPhotoHtml(productPhotoFor(product.productId, configuration.configurationId), 44)}
-      <button type="button" class="picker picker-product" data-action="open-panel" data-panel="product" data-focus="open-product" aria-haspopup="dialog" aria-expanded="${state.openPanel === 'product'}">
-        <span class="picker-words" translate="no">${escapeHtml(product.productName)}</span>${icons.chevronDown}</button>
-    </div>
-    <div class="bar-configuration" data-spec-choice-rows="${choicesInBar ? specNamesThatVary(product).length : 'none'}">
-      ${choicesInBar}${configurationPicker}<span class="bar-note" role="status">${escapeHtml(state.specChangeNote)}</span>
+      ${productPhotoHtml(productPhotoFor(product.productId, configuration.configurationId), 40)}
+      <div class="bar-product-words">
+        <button type="button" class="picker picker-product" data-action="open-panel" data-panel="product" data-focus="open-product" aria-haspopup="dialog" aria-expanded="${state.openPanel === 'product'}">
+          <span class="picker-words" translate="no">${escapeHtml(product.productName)}</span>${icons.chevronDown}</button>
+        ${configurationPicker}
+      </div>
     </div>
     <div class="bar-actions">
       <button type="button" class="picker picker-currency" data-action="open-panel" data-panel="currency" data-focus="open-currency" aria-haspopup="dialog" aria-expanded="${state.openPanel === 'currency'}" aria-label="Prices in ${escapeHtml(currencyWords(currencyCode))}">
-        <span class="picker-lead">Prices in</span> <span class="picker-words">${escapeHtml(currencyWords(currencyCode))}</span><span class="picker-code">${currencyCode}</span>${icons.chevronDown}</button>
+        <span class="picker-words">${currencyCode}</span>${icons.chevronDown}</button>
       <button type="button" class="button button-primary" data-action="open-panel" data-panel="share" data-focus="open-share">${icons.share}<span>Share</span></button>
     </div>`;
 }

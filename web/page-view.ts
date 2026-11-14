@@ -3,7 +3,7 @@ import type { PriceSnapshot } from '../src/generated/apple_prices/v1/price_snaps
 import type { PlacesOnPriceLine, RoleWording } from '../src/price-line.ts';
 import type { PriceComparison, Selection } from '../src/price-comparison.ts';
 
-export type OpenPanel = 'product' | 'configuration' | 'currency' | 'visitor-place' | 'compared-place' | 'all-prices' | 'places-at-one-price' | 'about-prices' | 'share' | null;
+export type OpenPanel = 'product' | 'configuration' | 'currency' | 'visitor-place' | 'compared-place' | 'places-at-one-price' | 'about-prices' | 'share' | null;
 
 export type PageState = Selection & {
   mapArea: string;

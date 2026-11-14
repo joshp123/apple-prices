@@ -166,24 +166,25 @@ async function journeyByMouse(): Promise<void> {
   await page.getByRole('button', { name: 'iPhone 18 Pro', exact: true }).click();
   await page.getByRole('option', { name: /^iPad Pro/ }).click();
   check('choosing a product changes the answer', (await answerText(page)).includes('iPad Pro costs you'));
+  await page.getByRole('button', { name: /^Configuration:/ }).click();
   await page.getByRole('radio', { name: '13-inch' }).click();
   await page.getByRole('radio', { name: 'Nano-texture glass' }).click();
-  check('a choice that changes another spec says so', /Storage changed to 1TB/.test(await page.locator('.bar-note').innerText()), await page.locator('.bar-note').innerText());
+  check('a choice that changes another spec says so', /Storage changed to 1TB/.test(await page.locator('.menu-note').innerText()), await page.locator('.menu-note').innerText());
+  await page.keyboard.press('Escape');
   check('the address names the configuration', page.url().includes('/ipad-pro/13in-1000gb-wi-fi-nano-texture-glass'), page.url());
 
   await page.getByRole('button', { name: /^Prices in / }).click();
   await page.getByRole('option', { name: /euros/ }).click();
   check('switching currency shows euros first', /€[\d,]+/.test(await page.locator('.lead-price').innerText()) && page.url().includes('in=EUR'));
 
-  await page.getByRole('button', { name: 'Compare with another place' }).click();
+  await page.getByRole('button', { name: /Choose a place/ }).click();
   await page.getByRole('searchbox').fill('ontario');
   await page.getByRole('option', { name: /Ontario, Canada/ }).click();
   check('search finds a province directly and compares with it', (await answerText(page)).includes('Compared with') && (await answerText(page)).includes('Ontario') && page.url().includes('vs=CA-ON'));
-  await page.getByRole('button', { name: 'Stop comparing with Ontario' }).click();
+  await page.getByRole('button', { name: /^Compared with Ontario/ }).click();
+  await page.getByRole('option', { name: 'No comparison' }).click();
   check('the comparison can be removed', !(await answerText(page)).includes('Compared with'));
 
-  await page.getByRole('radio', { name: 'Europe' }).click();
-  await settled(page);
   await page.locator('.map-label[data-place="TR"]').click();
   check('a place on the map opens its pop-up', (await page.locator('.pop-up').innerText()).includes('Turkey'));
   const applePage = await page.locator('.pop-up-link').getAttribute('href');
@@ -244,12 +245,11 @@ async function journeyByKeyboard(): Promise<void> {
   check('arrow keys and Enter choose a product', (await answerText(page)).includes('iPhone 18 Pro Max costs you'));
   check('focus returns to the product picker', (await focusedWords()).includes('iPhone 18 Pro Max'));
   await page.keyboard.press('Tab');
+  await page.keyboard.press('Enter');
   await page.keyboard.press('ArrowRight');
   check('arrow keys choose the next storage size', page.url().includes('512gb') && (await focusedWords()) === '512GB', page.url());
-  await page.keyboard.press('Tab');
-  await page.keyboard.press('Enter');
   await page.keyboard.press('Escape');
-  check('Escape closes a list and returns focus to what opened it', await page.locator('.menu').count() === 0 && (await focusedWords()).includes('Prices in'));
+  check('Escape closes a list and returns focus to what opened it', await page.locator('.menu').count() === 0 && /^Configuration:/.test(await page.evaluate(() => document.activeElement!.getAttribute('aria-label') ?? '')));
   await page.locator('.map-drawing').focus();
   const landBefore = await page.locator('.map-land').getAttribute('transform');
   await page.keyboard.press('+');

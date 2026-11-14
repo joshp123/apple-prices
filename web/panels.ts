@@ -79,9 +79,14 @@ function placeListHtml(view: PageView, purpose: 'visitor-place' | 'compared-plac
       data-search-words="${escapeHtml(name.toLowerCase())}" data-listed-before-searching="${isListedBeforeSearching}" ${isListedBeforeSearching ? '' : 'hidden'} data-focus="place-${code}">
       ${flagHtml(code)}<span class="menu-name">${escapeHtml(name)}</span><span class="menu-amount">${priceWords(comparison, placePrice(code), { shortenMillions: true })?.inDisplayCurrency ?? ''}</span></button>`;
   };
-  const rows = countryCodes.flatMap(countryCode => [countryCode, ...snapshot.salesTaxRegions.filter(region => countryCodeOf(region.regionCode) === countryCode).map(region => region.regionCode).sort((a, b) => placeName(snapshot, a).localeCompare(placeName(snapshot, b)))])
-    .filter(canBeChosen).map(row).join('');
-  const title = !isForVisitor ? 'Compare with' : listedCountryCode ? stateOrProvinceWords(listedCountryCode).chooseYours : 'Where are you?';
+  const everyPlaceCode = countryCodes.flatMap(countryCode => [countryCode, ...snapshot.salesTaxRegions.filter(region => countryCodeOf(region.regionCode) === countryCode).map(region => region.regionCode).sort((a, b) => placeName(snapshot, a).localeCompare(placeName(snapshot, b)))])
+    .filter(canBeChosen);
+  // Places to compare with are listed cheapest first, so the list is also the ranking of every price.
+  const lowestPriceInUsDollars = (code: string) => { const price = placePrice(code); return price.kind === 'priced' ? price.price.takeHomePriceInUsDollars : price.kind === 'priced-by-state-or-province' ? price.lowest.takeHomePriceInUsDollars : Infinity; };
+  if (!isForVisitor) everyPlaceCode.sort((a, b) => lowestPriceInUsDollars(a) - lowestPriceInUsDollars(b));
+  const noComparison = !isForVisitor && state.comparedPlaceCode ? `<button type="button" class="menu-item" role="option" aria-selected="false" data-action="compare-with" data-place="" data-focus="place-none"><span class="menu-name">No comparison</span></button>` : '';
+  const rows = noComparison + everyPlaceCode.map(row).join('');
+  const title = !isForVisitor ? 'Compare with, cheapest first' : listedCountryCode ? stateOrProvinceWords(listedCountryCode).chooseYours : 'Where are you?';
   const everyPlace = listedCountryCode ? `<button type="button" class="button button-quiet" data-action="list-every-place">Every country</button>` : '';
   const useMyLocation = isForVisitor ? `<button type="button" class="button button-quiet" data-action="use-my-location">${icons.locate}<span>Use my location</span></button>` : '';
   const openedBy = isForVisitor ? (listedCountryCode ? 'open-visitor-place-in-country' : 'open-visitor-place') : 'open-compared-place';
@@ -100,11 +105,6 @@ function rankedPlaceRowHtml({ comparison }: PageView, mark: PriceLineMark): stri
 
 const marksCheapestFirst = (view: PageView) => priceLineMarks(view.comparison, placesShownOnPriceLine(view.state), view.roleWording)
   .sort((a, b) => a.lowestPriceInUsDollars - b.lowestPriceInUsDollars || a.placeName.localeCompare(b.placeName));
-
-function allPricesHtml(view: PageView): string {
-  const title = placesShownOnPriceLine(view.state) === 'countries' ? 'All prices, cheapest first' : 'US states and Canadian provinces, cheapest first';
-  return `<div class="panel menu menu-of-places menu-of-all-prices" role="dialog" aria-label="${title}" data-opened-by="open-all-prices" data-aligned-to="end" data-opens="upwards">${panelHeadHtml(title)}<div class="menu-list">${marksCheapestFirst(view).map(mark => rankedPlaceRowHtml(view, mark)).join('')}</div></div>`;
-}
 
 // The places behind one count on the price line.
 function placesAtOnePriceHtml(view: PageView): string {
@@ -145,8 +145,8 @@ export function placePopUpHtml({ snapshot, state, comparison, openerPlaceCode, v
   const canCompare = canCompareWith(snapshot, comparison.product, comparison.prices, state.visitorPlaceCode, placeCode);
   const actions = [
     canCompare && !isComparedPlace ? `<button type="button" class="button button-primary" data-action="compare-with" data-place="${placeCode}">Compare with ${state.visitorPlaceCode ? visitorInComparisons : 'this place'}</button>` : '',
-    isComparedPlace ? '<button type="button" class="button" data-action="compare-with" data-place="">Stop comparing</button>' : '',
-    price.kind === 'priced-by-state-or-province' ? `<button type="button" class="button" data-action="show-map-area" data-area="${placeCode === 'US' ? 'united-states' : 'canada'}">Show the ${placeCode === 'US' ? 'states' : 'provinces'}</button>` : '',
+    isComparedPlace ? '<button type="button" class="button button-quiet" data-action="compare-with" data-place="">Stop comparing</button>' : '',
+    price.kind === 'priced-by-state-or-province' ? `<button type="button" class="button button-quiet" data-action="show-map-area" data-area="${placeCode === 'US' ? 'united-states' : 'canada'}">Show the ${placeCode === 'US' ? 'states' : 'provinces'}</button>` : '',
     !isVisitorPlace ? `<button type="button" class="button button-quiet" data-action="choose-visitor-place" data-place="${placeCode}">I’m here</button>` : '',
   ].join('');
   const seeAtApple = price.kind === 'priced' ? `<a class="pop-up-link" href="${escapeHtml(price.price.applePageUrl)}" target="_blank" rel="noopener">See it at Apple</a>` : '';
@@ -193,7 +193,6 @@ export function openPanelHtml(view: PageView, countryCodesOnMap: string[]): stri
     case 'configuration': return configurationListHtml(view);
     case 'currency': return currencyListHtml(view);
     case 'visitor-place': case 'compared-place': return placeListHtml(view, view.state.openPanel, countryCodesOnMap);
-    case 'all-prices': return allPricesHtml(view);
     case 'places-at-one-price': return placesAtOnePriceHtml(view);
     case 'about-prices': return aboutPricesHtml(view);
     case 'share': return shareDialogHtml(view);

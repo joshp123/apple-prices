@@ -19,14 +19,7 @@ function namedPlaceHtml(view: PageView, mark: PriceLineMark): string {
 export function drawPriceLine(container: HTMLElement, view: PageView): void {
   const { comparison, state } = view;
   const placesShown = placesShownOnPriceLine(state), isPhone = isPhoneWidth();
-  const isChosen = (places: string) => placesShown === places;
-  container.innerHTML = `<div class="price-line-head">
-      <div class="segments segments-small" role="radiogroup" aria-label="Places on the price line">
-        <button type="button" role="radio" class="segment" aria-checked="${isChosen('countries')}" tabindex="${isChosen('countries') ? 0 : -1}" data-action="show-on-price-line" data-places="countries" data-focus="line-countries">Countries</button>
-        <button type="button" role="radio" class="segment" aria-checked="${isChosen('states-and-provinces')}" tabindex="${isChosen('states-and-provinces') ? 0 : -1}" data-action="show-on-price-line" data-places="states-and-provinces" data-focus="line-states-and-provinces"><span class="words-on-wide-screen">US states and Canadian provinces</span><span class="words-on-phone">States and provinces</span></button>
-      </div>
-      <button type="button" class="button button-quiet" data-action="open-panel" data-panel="all-prices" data-focus="open-all-prices">All prices</button>
-    </div>
+  container.innerHTML = `
     <div class="price-line-plot" role="group" aria-label="Every place on one price line, cheapest on the left">
       <div class="named-places"></div><svg class="stems" aria-hidden="true"></svg><div class="ticks" aria-hidden="true"></div><div class="band" aria-hidden="true"></div>
       <div class="hanging-flags"></div><div class="names-under-line" aria-hidden="true"></div>

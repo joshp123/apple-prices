@@ -38,7 +38,7 @@ function view(): PageView {
 
 // ---------- the address ----------
 
-const openPanels: OpenPanel[] = ['product', 'configuration', 'currency', 'visitor-place', 'compared-place', 'all-prices', 'places-at-one-price', 'about-prices', 'share'];
+const openPanels: OpenPanel[] = ['product', 'configuration', 'currency', 'visitor-place', 'compared-place', 'places-at-one-price', 'about-prices', 'share'];
 
 function stateFromAddress(): PageState {
   const address = new URL(location.href), parameter = (name: string) => address.searchParams.get(name);
@@ -134,7 +134,6 @@ function drawEverything(): void {
   drawPriceLine(priceLineBox, view());
   drawAnswer();
   priceMap.fitToContainer();
-  priceMap.drawAreaShortcuts(state.mapArea);
   priceMap.colourPlaces(view());
   priceMap.buildLabels(view());
   drawPanels();
@@ -169,7 +168,6 @@ function change(changes: Partial<PageState>, options: ChangeOptions = {}): void 
   if (pricesChanged) priceMap.buildLabels(view());
   if (pricesChanged || before.placesOnPriceLine !== state.placesOnPriceLine || before.mapArea !== state.mapArea) drawPriceLine(priceLineBox, view());
   if (before.mapArea !== state.mapArea) {
-    priceMap.drawAreaShortcuts(state.mapArea);
     priceMap.showArea(state.mapArea, true);
   }
   drawPanels();
@@ -279,7 +277,6 @@ document.addEventListener('click', event => {
       return announce(state.comparedPlaceCode ? `Comparing with ${placeNameAfterIn(snapshot, state.comparedPlaceCode)}` : 'No longer comparing');
     case 'show-place': return change({ popUpPlaceCode: data.place!, popUpOpenedFrom: data.from === 'price-line' ? 'price-line' : 'map', openPanel: null });
     case 'show-map-area': return change({ mapArea: data.area!, popUpPlaceCode: null, placesOnPriceLine: null });
-    case 'show-on-price-line': return change({ placesOnPriceLine: data.places as PlacesOnPriceLine });
     case 'zoom-map':
       priceMap.zoomBy(Number(data.by));
       return mapMovedByHand();
@@ -293,7 +290,6 @@ document.addEventListener('click', event => {
 function mapMovedByHand(): void {
   if (state.mapArea === 'moved-by-hand') return;
   state.mapArea = 'moved-by-hand';
-  priceMap.drawAreaShortcuts(state.mapArea);
 }
 
 document.addEventListener('input', event => {

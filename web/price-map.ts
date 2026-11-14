@@ -81,7 +81,6 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
       <defs><pattern id="no-price-hatch" patternUnits="userSpaceOnUse" width="5" height="5"><rect class="no-price-ground" width="5" height="5"/><path class="no-price-stripe" d="M-1 1l2-2M0 5l5-5M4 6l2-2"/></pattern></defs>
       <g class="map-land"></g></svg>
     <svg class="map-leaders" aria-hidden="true"></svg><div class="map-labels"></div>
-    <div class="map-areas segments" role="radiogroup" aria-label="Map area"></div>
     <div class="map-zoom"><button type="button" class="icon-button" data-action="zoom-map" data-by="2" aria-label="Zoom in">${icons.plus}</button><button type="button" class="icon-button" data-action="zoom-map" data-by="0.5" aria-label="Zoom out">${icons.minus}</button></div>
     <p class="map-key"><span class="swatch-no-price"></span>No price from Apple</p>`;
   const drawing = select<SVGSVGElement, unknown>(container.querySelector<SVGSVGElement>('.map-drawing')!);
@@ -126,9 +125,16 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
     return true;
   }
 
+  // On a tall phone map the whole world would sit in a thin band of sea; it is drawn up to a third larger instead,
+  // trimming the far Pacific at both edges, and can be dragged.
+  function worldOnPhone(): ZoomTransform {
+    const k = Math.min(1.35, size.height / (size.width / 2));
+    return k <= 1 ? zoomIdentity : zoomIdentity.translate(size.width / 2 * (1 - k), size.height / 2 * (1 - k)).scale(k);
+  }
+
   function transformThatShows(areaName: string): ZoomTransform {
     const corners = mapAreas[areaName]?.southWestAndNorthEast;
-    if (!corners) return zoomIdentity;
+    if (!corners) return isPhoneWidth() ? worldOnPhone() : zoomIdentity;
     const [left, bottom] = projection(corners[0])!, [right, top] = projection(corners[1])!;
     const isPhone = isPhoneWidth(), marginAbove = isPhone ? 52 : 64, margin = isPhone ? 10 : 28;
     const k = Math.min(deepestZoom, (size.width - 2 * margin) / (right - left), (size.height - marginAbove - margin) / (bottom - top));
@@ -140,11 +146,6 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
     const target = transformThatShows(areaName);
     if (isAnimated && !matchMedia('(prefers-reduced-motion: reduce)').matches) drawing.transition().duration(480).call(zoomBehaviour.transform, target);
     else drawing.call(zoomBehaviour.transform, target);
-  }
-
-  function drawAreaShortcuts(chosenAreaName: string): void {
-    container.querySelector('.map-areas')!.innerHTML = Object.entries(mapAreas).filter(([, area]) => area.hasShortcut).map(([name, area]) =>
-      `<button type="button" role="radio" class="segment" aria-checked="${chosenAreaName === name}" tabindex="${chosenAreaName === name || (chosenAreaName === 'moved-by-hand' && name === 'world') ? 0 : -1}" data-action="show-map-area" data-area="${name}" data-focus="area-${name}">${area.words}</button>`).join('');
   }
 
   function colourPlaces({ comparison, state }: PageView): void {
@@ -189,7 +190,7 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
     if (!labels.length) return;
     const k = transform.k, isPhone = isPhoneWidth(), showsStatesAndProvinces = k >= zoomThatShowsStatesAndProvinces;
     const containerBox = container.getBoundingClientRect();
-    const takenBoxes: Box[] = ['.map-areas', '.map-zoom', '.map-key'].map(selector => {
+    const takenBoxes: Box[] = ['.map-zoom', '.map-key'].map(selector => {
       const box = container.querySelector(selector)!.getBoundingClientRect();
       return { left: box.left - containerBox.left, top: box.top - containerBox.top, right: box.right - containerBox.left, bottom: box.bottom - containerBox.top };
     });
@@ -236,7 +237,7 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
   }
 
   return {
-    fitToContainer, showArea, drawAreaShortcuts, colourPlaces, buildLabels,
+    fitToContainer, showArea, colourPlaces, buildLabels,
     zoomBy: (factor: number) => drawing.transition().duration(240).call(zoomBehaviour.scaleBy, factor),
     lightUp(placeCode: string | null): void {
       land.selectAll('path.is-lit').classed('is-lit', false);
