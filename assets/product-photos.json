@@ -1,0 +1,788 @@
+{
+ "iphone-18-pro": {
+  "usualPhoto": {
+   "imageName": "iphone-18-pro-finish-select-silver-202609",
+   "productBox": [
+    148,
+    122,
+    652,
+    729
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {}
+ },
+ "iphone-18-pro-max": {
+  "usualPhoto": {
+   "imageName": "iphone-18-pro-max-finish-select-silver-202609",
+   "productBox": [
+    129,
+    67,
+    671,
+    729
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {}
+ },
+ "iphone-duo": {
+  "usualPhoto": {
+   "imageName": "iphone-duo-finish-select-night-sky-202609",
+   "productBox": [
+    69,
+    185,
+    730,
+    614
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {}
+ },
+ "iphone-air": {
+  "usualPhoto": {
+   "imageName": "iphone-air-finish-select-skyblue-202509",
+   "productBox": [
+    218,
+    96,
+    582,
+    733
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {}
+ },
+ "iphone-17": {
+  "usualPhoto": {
+   "imageName": "iphone-17-finish-select-mistblue-202509",
+   "productBox": [
+    227,
+    123,
+    573,
+    731
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {}
+ },
+ "iphone-17e": {
+  "usualPhoto": {
+   "imageName": "iphone-17e-finish-select-softpink-202603",
+   "productBox": [
+    126,
+    67,
+    674,
+    734
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {}
+ },
+ "ipad-pro": {
+  "usualPhoto": {
+   "imageName": "ipad-pro-11-select-wifi-spaceblack-202405",
+   "productBox": [
+    107,
+    109,
+    692,
+    779
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {
+   "13in-256gb-wi-fi-standard-glass": {
+    "imageName": "ipad-pro-13-select-wifi-spaceblack-202405",
+    "productBox": [
+     35,
+     0,
+     764,
+     800
+    ],
+    "onOpaqueBackdrop": false
+   },
+   "13in-256gb-wi-fi-cellular-standard-glass": {
+    "imageName": "ipad-pro-13-select-wifi-spaceblack-202405",
+    "productBox": [
+     35,
+     0,
+     764,
+     800
+    ],
+    "onOpaqueBackdrop": false
+   },
+   "13in-512gb-wi-fi-standard-glass": {
+    "imageName": "ipad-pro-13-select-wifi-spaceblack-202405",
+    "productBox": [
+     35,
+     0,
+     764,
+     800
+    ],
+    "onOpaqueBackdrop": false
+   },
+   "13in-512gb-wi-fi-cellular-standard-glass": {
+    "imageName": "ipad-pro-13-select-wifi-spaceblack-202405",
+    "productBox": [
+     35,
+     0,
+     764,
+     800
+    ],
+    "onOpaqueBackdrop": false
+   },
+   "13in-1000gb-wi-fi-standard-glass": {
+    "imageName": "ipad-pro-13-select-wifi-spaceblack-202405",
+    "productBox": [
+     35,
+     0,
+     764,
+     800
+    ],
+    "onOpaqueBackdrop": false
+   },
+   "13in-1000gb-wi-fi-nano-texture-glass": {
+    "imageName": "ipad-pro-13-select-wifi-spaceblack-202405",
+    "productBox": [
+     35,
+     0,
+     764,
+     800
+    ],
+    "onOpaqueBackdrop": false
+   },
+   "13in-1000gb-wi-fi-cellular-standard-glass": {
+    "imageName": "ipad-pro-13-select-wifi-spaceblack-202405",
+    "productBox": [
+     35,
+     0,
+     764,
+     800
+    ],
+    "onOpaqueBackdrop": false
+   },
+   "13in-1000gb-wi-fi-cellular-nano-texture-glass": {
+    "imageName": "ipad-pro-13-select-wifi-spaceblack-202405",
+    "productBox": [
+     35,
+     0,
+     764,
+     800
+    ],
+    "onOpaqueBackdrop": false
+   },
+   "13in-2000gb-wi-fi-standard-glass": {
+    "imageName": "ipad-pro-13-select-wifi-spaceblack-202405",
+    "productBox": [
+     35,
+     0,
+     764,
+     800
+    ],
+    "onOpaqueBackdrop": false
+   },
+   "13in-2000gb-wi-fi-nano-texture-glass": {
+    "imageName": "ipad-pro-13-select-wifi-spaceblack-202405",
+    "productBox": [
+     35,
+     0,
+     764,
+     800
+    ],
+    "onOpaqueBackdrop": false
+   },
+   "13in-2000gb-wi-fi-cellular-standard-glass": {
+    "imageName": "ipad-pro-13-select-wifi-spaceblack-202405",
+    "productBox": [
+     35,
+     0,
+     764,
+     800
+    ],
+    "onOpaqueBackdrop": false
+   },
+   "13in-2000gb-wi-fi-cellular-nano-texture-glass": {
+    "imageName": "ipad-pro-13-select-wifi-spaceblack-202405",
+    "productBox": [
+     35,
+     0,
+     764,
+     800
+    ],
+    "onOpaqueBackdrop": false
+   }
+  }
+ },
+ "ipad-air": {
+  "usualPhoto": {
+   "imageName": "ipad-air-select-11in-wifi-spacegray-202405",
+   "productBox": [
+    97,
+    105,
+    693,
+    781
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {
+   "13in-128gb-wi-fi": {
+    "imageName": "ipad-air-select-13in-wifi-spacegray-202405",
+    "productBox": [
+     53,
+     21,
+     747,
+     781
+    ],
+    "onOpaqueBackdrop": false
+   },
+   "13in-256gb-wi-fi": {
+    "imageName": "ipad-air-select-13in-wifi-spacegray-202405",
+    "productBox": [
+     53,
+     21,
+     747,
+     781
+    ],
+    "onOpaqueBackdrop": false
+   },
+   "13in-128gb-wi-fi-cellular": {
+    "imageName": "ipad-air-select-13in-wifi-spacegray-202405",
+    "productBox": [
+     53,
+     21,
+     747,
+     781
+    ],
+    "onOpaqueBackdrop": false
+   },
+   "13in-256gb-wi-fi-cellular": {
+    "imageName": "ipad-air-select-13in-wifi-spacegray-202405",
+    "productBox": [
+     53,
+     21,
+     747,
+     781
+    ],
+    "onOpaqueBackdrop": false
+   },
+   "13in-512gb-wi-fi": {
+    "imageName": "ipad-air-select-13in-wifi-spacegray-202405",
+    "productBox": [
+     53,
+     21,
+     747,
+     781
+    ],
+    "onOpaqueBackdrop": false
+   },
+   "13in-512gb-wi-fi-cellular": {
+    "imageName": "ipad-air-select-13in-wifi-spacegray-202405",
+    "productBox": [
+     53,
+     21,
+     747,
+     781
+    ],
+    "onOpaqueBackdrop": false
+   },
+   "13in-1000gb-wi-fi": {
+    "imageName": "ipad-air-select-13in-wifi-spacegray-202405",
+    "productBox": [
+     53,
+     21,
+     747,
+     781
+    ],
+    "onOpaqueBackdrop": false
+   },
+   "13in-1000gb-wi-fi-cellular": {
+    "imageName": "ipad-air-select-13in-wifi-spacegray-202405",
+    "productBox": [
+     53,
+     21,
+     747,
+     781
+    ],
+    "onOpaqueBackdrop": false
+   }
+  }
+ },
+ "ipad": {
+  "usualPhoto": {
+   "imageName": "ipad-2022-hero-blue-wifi-select",
+   "productBox": [
+    104,
+    107,
+    697,
+    778
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {}
+ },
+ "ipad-mini": {
+  "usualPhoto": {
+   "imageName": "ipad-mini-finish-select-wifi-starlight-202610",
+   "productBox": [
+    81,
+    3,
+    719,
+    798
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {}
+ },
+ "macbook-neo": {
+  "usualPhoto": {
+   "imageName": "macbook-neo-color-select-202603-blush-256gb",
+   "productBox": [
+    166,
+    269,
+    634,
+    556
+   ],
+   "onOpaqueBackdrop": true
+  },
+  "photoByConfigurationId": {}
+ },
+ "macbook-air": {
+  "usualPhoto": {
+   "imageName": "macbook-air-specs-select-202601-13inch-starlight",
+   "productBox": [
+    162,
+    272,
+    638,
+    561
+   ],
+   "onOpaqueBackdrop": true
+  },
+  "photoByConfigurationId": {
+   "15in-m5-10cpu-10gpu-16gb-memory-512gb": {
+    "imageName": "macbook-air-specs-select-202601-15inch-starlight",
+    "productBox": [
+     135,
+     237,
+     665,
+     560
+    ],
+    "onOpaqueBackdrop": true
+   },
+   "15in-m5-10cpu-10gpu-24gb-memory-512gb": {
+    "imageName": "macbook-air-specs-select-202601-15inch-starlight",
+    "productBox": [
+     135,
+     237,
+     665,
+     560
+    ],
+    "onOpaqueBackdrop": true
+   },
+   "15in-m5-10cpu-10gpu-16gb-memory-1000gb": {
+    "imageName": "macbook-air-specs-select-202601-15inch-starlight",
+    "productBox": [
+     135,
+     237,
+     665,
+     560
+    ],
+    "onOpaqueBackdrop": true
+   },
+   "15in-m5-10cpu-10gpu-24gb-memory-1000gb": {
+    "imageName": "macbook-air-specs-select-202601-15inch-starlight",
+    "productBox": [
+     135,
+     237,
+     665,
+     560
+    ],
+    "onOpaqueBackdrop": true
+   }
+  }
+ },
+ "macbook-pro": {
+  "usualPhoto": {
+   "imageName": "mac-macbook-pro-specs-select-202610-14inch-spaceblack",
+   "productBox": [
+    156,
+    270,
+    644,
+    565
+   ],
+   "onOpaqueBackdrop": true
+  },
+  "photoByConfigurationId": {
+   "16in-m5-pro-18cpu-20gpu-24gb-memory-1000gb-standard-glass": {
+    "imageName": "mac-macbook-pro-specs-select-202610-16inch-spaceblack",
+    "productBox": [
+     130,
+     233,
+     670,
+     564
+    ],
+    "onOpaqueBackdrop": true
+   },
+   "16in-m5-max-18cpu-32gpu-36gb-memory-2000gb-standard-glass": {
+    "imageName": "mac-macbook-pro-specs-select-202610-16inch-spaceblack",
+    "productBox": [
+     130,
+     233,
+     670,
+     564
+    ],
+    "onOpaqueBackdrop": true
+   }
+  }
+ },
+ "macbook-pro-proled-xdr": {
+  "usualPhoto": {
+   "imageName": "mac-macbook-pro-proled-specs-select-202610-14inch-spaceblack",
+   "productBox": [
+    174,
+    268,
+    626,
+    546
+   ],
+   "onOpaqueBackdrop": true
+  },
+  "photoByConfigurationId": {
+   "16in-m5-pro-18cpu-20gpu-24gb-memory-1000gb-standard-glass": {
+    "imageName": "mac-macbook-pro-proled-specs-select-202610-16inch-spaceblack",
+    "productBox": [
+     144,
+     251,
+     656,
+     563
+    ],
+    "onOpaqueBackdrop": true
+   },
+   "16in-m5-pro-18cpu-20gpu-48gb-memory-1000gb-standard-glass": {
+    "imageName": "mac-macbook-pro-proled-specs-select-202610-16inch-spaceblack",
+    "productBox": [
+     144,
+     251,
+     656,
+     563
+    ],
+    "onOpaqueBackdrop": true
+   },
+   "16in-m5-max-18cpu-32gpu-36gb-memory-2000gb-standard-glass": {
+    "imageName": "mac-macbook-pro-proled-specs-select-202610-16inch-spaceblack",
+    "productBox": [
+     144,
+     251,
+     656,
+     563
+    ],
+    "onOpaqueBackdrop": true
+   },
+   "16in-m5-max-18cpu-40gpu-48gb-memory-2000gb-standard-glass": {
+    "imageName": "mac-macbook-pro-proled-specs-select-202610-16inch-spaceblack",
+    "productBox": [
+     144,
+     251,
+     656,
+     563
+    ],
+    "onOpaqueBackdrop": true
+   }
+  }
+ },
+ "imac": {
+  "usualPhoto": {
+   "imageName": "imac-color-unselect-202610-gallery-1",
+   "productBox": [
+    186,
+    230,
+    612,
+    569
+   ],
+   "onOpaqueBackdrop": true
+  },
+  "photoByConfigurationId": {}
+ },
+ "mac-mini": {
+  "usualPhoto": {
+   "imageName": "mac-mini-chip-unselect-202608-gallery-1",
+   "productBox": [
+    219,
+    327,
+    581,
+    473
+   ],
+   "onOpaqueBackdrop": true
+  },
+  "photoByConfigurationId": {}
+ },
+ "mac-studio": {
+  "usualPhoto": {
+   "imageName": "mac-studio-chip-unselect-202608-gallery-1",
+   "productBox": [
+    217,
+    335,
+    583,
+    516
+   ],
+   "onOpaqueBackdrop": true
+  },
+  "photoByConfigurationId": {}
+ },
+ "studio-display": {
+  "usualPhoto": {
+   "imageName": "MFEX4",
+   "productBox": [
+    70,
+    174,
+    730,
+    682
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {}
+ },
+ "studio-display-xdr": {
+  "usualPhoto": {
+   "imageName": "MFEL4",
+   "productBox": [
+    70,
+    119,
+    730,
+    682
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {}
+ },
+ "apple-watch-series-12": {
+  "usualPhoto": {
+   "imageName": "watch-compare-series-12-202609",
+   "productBox": [
+    197,
+    176,
+    603,
+    658
+   ],
+   "onOpaqueBackdrop": true
+  },
+  "photoByConfigurationId": {
+   "gps-cellular-titanium-42mm": {
+    "imageName": "watch-case-42-titanium-natural-cell-s12_VW_34FR",
+    "productBox": [
+     108,
+     184,
+     467,
+     658
+    ],
+    "onOpaqueBackdrop": false
+   },
+   "gps-cellular-titanium-46mm": {
+    "imageName": "watch-case-46-titanium-natural-cell-s12_VW_34FR",
+    "productBox": [
+     95,
+     138,
+     482,
+     656
+    ],
+    "onOpaqueBackdrop": false
+   },
+   "gps-cellular-ceramic-42mm": {
+    "imageName": "watch-case-42-ceramic-pearlwhite-cell-s12_VW_34FR",
+    "productBox": [
+     108,
+     181,
+     469,
+     660
+    ],
+    "onOpaqueBackdrop": false
+   },
+   "gps-cellular-ceramic-46mm": {
+    "imageName": "watch-case-46-ceramic-pearlwhite-cell-s12_VW_34FR",
+    "productBox": [
+     95,
+     135,
+     484,
+     658
+    ],
+    "onOpaqueBackdrop": false
+   }
+  }
+ },
+ "apple-watch-ultra-4": {
+  "usualPhoto": {
+   "imageName": "watch-compare-ultra-4-202609",
+   "productBox": [
+    170,
+    143,
+    631,
+    657
+   ],
+   "onOpaqueBackdrop": true
+  },
+  "photoByConfigurationId": {}
+ },
+ "apple-watch-se-3": {
+  "usualPhoto": {
+   "imageName": "watch-compare-se-3-202609",
+   "productBox": [
+    193,
+    170,
+    599,
+    658
+   ],
+   "onOpaqueBackdrop": true
+  },
+  "photoByConfigurationId": {}
+ },
+ "apple-vision-pro": {
+  "usualPhoto": {
+   "imageName": "vision-pro-gallery-measure-dual-knit-202510",
+   "productBox": [
+    177,
+    253,
+    624,
+    571
+   ],
+   "onOpaqueBackdrop": true
+  },
+  "photoByConfigurationId": {}
+ },
+ "airpods-5": {
+  "usualPhoto": {
+   "imageName": "airpods-5-select-202609_FV1",
+   "productBox": [
+    173,
+    257,
+    627,
+    739
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {}
+ },
+ "airpods-pro-3": {
+  "usualPhoto": {
+   "imageName": "airpods-pro-3-hero-select-202509",
+   "productBox": [
+    122,
+    129,
+    677,
+    739
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {}
+ },
+ "airpods-max-2": {
+  "usualPhoto": {
+   "imageName": "airpods-max-select-202409-blue_FV1",
+   "productBox": [
+    0,
+    144,
+    800,
+    739
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {}
+ },
+ "homepod": {
+  "usualPhoto": {
+   "imageName": "homepod-select-midnight-202610",
+   "productBox": [
+    224,
+    174,
+    575,
+    653
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {}
+ },
+ "homepod-mini-2": {
+  "usualPhoto": {
+   "imageName": "homepod-mini-select-white-202610_FV1",
+   "productBox": [
+    269,
+    276,
+    532,
+    525
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {}
+ },
+ "apple-homeview": {
+  "usualPhoto": {
+   "imageName": "homeview-select-rosepink-202610",
+   "productBox": [
+    73,
+    14,
+    727,
+    788
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {}
+ },
+ "apple-tv-4k": {
+  "usualPhoto": {
+   "imageName": "apple-tv-4k-hero-select-202610",
+   "productBox": [
+    103,
+    109,
+    698,
+    695
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {}
+ },
+ "airtag": {
+  "usualPhoto": {
+   "imageName": "airtag-1pack-select-202601",
+   "productBox": [
+    182,
+    234,
+    618,
+    670
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {
+   "4-pack": {
+    "imageName": "airtag-4pack-select-202601",
+    "productBox": [
+     0,
+     234,
+     800,
+     666
+    ],
+    "onOpaqueBackdrop": false
+   }
+  }
+ },
+ "apple-pencil-pro": {
+  "usualPhoto": {
+   "imageName": "MX2D3",
+   "productBox": [
+    379,
+    12,
+    421,
+    788
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {}
+ },
+ "apple-pencil-usb-c": {
+  "usualPhoto": {
+   "imageName": "MUWA3",
+   "productBox": [
+    377,
+    12,
+    423,
+    788
+   ],
+   "onOpaqueBackdrop": false
+  },
+  "photoByConfigurationId": {}
+ }
+}
