@@ -1,0 +1,16 @@
+{
+  "name": "apple-prices",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "buf lint && buf generate",
+    "scrape": "node tools/scrape-apple-prices.ts",
+    "check": "node tools/check-prices-against-apple.ts"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.17.0"
+  },
+  "devDependencies": {
+    "@bufbuild/protoc-gen-es": "^2.17.0"
+  }
+}

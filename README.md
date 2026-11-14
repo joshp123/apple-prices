@@ -2,6 +2,22 @@
 
 A world map of Apple hardware prices, including tax.
 
+## Data
+
+`data/price-snapshot.binpb` is one `PriceSnapshot` (see `proto/apple_prices/v1/price_snapshot.proto`): every flagship Apple product's standard configurations and their prices in Apple's 40 online stores, Macau's published base prices, US state and Canadian provincial sales tax, California's recycling fee, and exchange rates. `src/take-home-prices.ts` turns it into what you pay with tax in each country, state or province. Product images are in `data/product-images/`.
+
+Prices come only from Apple's own pages. US sales tax is the Tax Foundation's population-weighted average of state and local rates (mid-2026); Canadian tax is the Canada Revenue Agency's GST/HST plus provincial sales tax. Canadian provincial recycling fees are not included.
+
+Refresh it, then check a random sample against Apple's part pages:
+
+```sh
+devenv shell -- npm install
+devenv shell -- node tools/scrape-apple-prices.ts
+devenv shell -- node tools/check-prices-against-apple.ts 3
+```
+
+A full scrape takes 15 to 60 minutes, because Apple throttles bursts of requests. It refuses to write a snapshot if a price it had last time is now missing; rerun it, or pass `--accept-missing-prices` once you have checked Apple's page. `devenv shell -- node tools/print-snapshot.ts [product-id]` prints coverage.
+
 ## Deploy
 
 The public ChatGPT Site is identified by `.openai/hosting.json`. DNS is managed in `opentofu-infra/websites/jjpcodes.com`.
