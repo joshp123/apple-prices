@@ -18,6 +18,20 @@ devenv shell -- node tools/check-prices-against-apple.ts 3
 
 A full scrape takes 15 to 60 minutes, because Apple throttles bursts of requests. It refuses to write a snapshot if a price it had last time is now missing; rerun it, or pass `--accept-missing-prices` once you have checked Apple's page. `devenv shell -- node tools/print-snapshot.ts [product-id]` prints coverage.
 
+## Site
+
+`web/` is the page and `hosting/worker.ts` is the Worker that serves it. The browser decodes the same snapshot with the generated protobuf bindings and works out every price with `src/take-home-prices.ts`. A link such as `/iphone-18-pro/6.3in-256gb?me=NL&vs=JP&in=EUR` carries the product, configuration, the visitor's place, the compared place and the currency; the Worker answers it with the page and the tags that make X show that link's own share card, which it draws as SVG (`src/share-card-svg.ts`) and renders to PNG with resvg.
+
+```sh
+devenv shell -- node hosting/build.mjs                  # writes dist/ and prints the bundle size
+devenv shell -- node hosting/preview.mjs 8787           # the built Worker on this machine, in the runtime Sites uses
+devenv shell -- node tools/check-site-in-browser.ts http://127.0.0.1:8787 /tmp/apple-prices-photographs
+```
+
+The last command uses the site as a visitor would, in a headless browser, by mouse and by keyboard, and photographs every state at laptop and phone size plus the Worker's share cards.
+
+The pictures the site ships are in `assets/`, each written by a tool: flags by `tools/build-flags.ts` (licences in `assets/flags/LICENCES.md`), the map by `tools/build-map-geometry.ts` (`assets/map/LICENCE.md`), the share card's Inter fonts by `tools/build-fonts.ts` (`assets/fonts/OFL-Inter.txt`), and where the product sits in each Apple photo, with a small copy of each photo for the share card, by `tools/measure-product-photos.ts`. The page loads its product photo from Apple's image server.
+
 ## Deploy
 
 The public ChatGPT Site is identified by `.openai/hosting.json`. DNS is managed in `opentofu-infra/websites/jjpcodes.com`.

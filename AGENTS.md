@@ -14,7 +14,9 @@ A world map of what Apple's hardware costs to take home in each country, US stat
 
 - `proto/` is the data contract: one protobuf price snapshot.
 - `tools/` scrapes Apple's store pages and writes the snapshot to `data/`.
-- `hosting/` is the Sites worker.
+- `src/` is what the page and the share card both use: prices, wording, the price line, the card's SVG.
+- `web/` is the page; `hosting/` is the Sites Worker that serves it and renders share cards.
+- `assets/` holds flags, map outlines and fonts, each written by a tool in `tools/`.
 
 ## Rules
 
