@@ -8,7 +8,7 @@ import { selectionFromShareLink, shareCardPath, shareLinkPath } from '../src/sha
 import { specLine } from '../src/spec-words.ts';
 import { answerHtml, drawAnswer, placeListHtml, placePicker, type PlacePickerPurpose } from './answer.ts';
 import { isPhoneWidth, roleWordingOnPage, type PageState, type PageView } from './page-view.ts';
-import { placePopUpHtml, popUpsHtml, postOnXLink, shareDialogHtml, shareLink } from './pop-ups.ts';
+import { placePopUpHtml, popUpsHtml, postOnTwitterLink, shareDialogHtml, shareLink } from './pop-ups.ts';
 import { createPriceMap, mapAreas, type PriceMap } from './price-map.ts';
 import { currencyWords, drawProductBar, productBarHtml } from './product-bar.ts';
 
@@ -223,7 +223,7 @@ document.addEventListener('input', event => {
   const input = event.target as HTMLTextAreaElement;
   if (input.dataset.input !== 'share-text') return;
   state.shareTextAsTyped = input.value;
-  element<HTMLAnchorElement>('#post-on-x').href = postOnXLink(view(), input.value);
+  element<HTMLAnchorElement>('#post-on-twitter').href = postOnTwitterLink(view(), input.value);
 });
 
 // Pointing at or focusing a map label lights up its place on the map.

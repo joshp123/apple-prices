@@ -51,7 +51,7 @@ export const shareLink = ({ state }: PageView) => `${location.origin}${shareLink
 export const shareTextSuggested = ({ comparison }: PageView) => shareSentence(comparison);
 
 // X shows the link's picture beside the post. The words are the visitor's own, exactly as typed; none at all is allowed.
-export function postOnXLink(view: PageView, text: string): string {
+export function postOnTwitterLink(view: PageView, text: string): string {
   const parameters = new URLSearchParams({ url: shareLink(view) });
   if (text) parameters.set('text', text);
   return `https://x.com/intent/post?${parameters}`;
@@ -68,7 +68,7 @@ export function shareDialogHtml(view: PageView): string {
         <ui-textarea><textarea id="share-text" name="post" rows="5" autocomplete="off" data-input="share-text">${escapeHtml(text)}</textarea></ui-textarea>
         <p class="share-link" translate="no">${escapeHtml(shareLink(view).replace(/^https?:\/\//, ''))}</p>
         <div class="share-actions">
-          <a class="control control-primary" id="post-on-x" href="${escapeHtml(postOnXLink(view, text))}" target="_blank" rel="noopener">Post on X</a>
+          <a class="control control-primary" id="post-on-twitter" href="${escapeHtml(postOnTwitterLink(view, text))}" target="_blank" rel="noopener">Post on Twitter</a>
           ${actionButton('Copy link', 'data-action="copy-share-link"')}
           ${actionButton('Copy picture', 'data-action="copy-share-card"')}
           <a class="control" href="${escapeHtml(cardPath)}" download="apple-prices-${view.state.productId}.png">Save picture</a>

@@ -242,7 +242,7 @@ async function journeyByMouse(): Promise<void> {
   await page.waitForFunction(() => document.documentElement.dataset.page === 'ready');
   await page.getByRole('button', { name: 'Share' }).click();
   const shareAddress = `${siteAddress}/iphone-18-pro/6.3in-256gb?me=NL&vs=JP&in=EUR`;
-  const postLink = async () => new URL((await page.locator('#post-on-x').getAttribute('href'))!);
+  const postLink = async () => new URL((await page.locator('#post-on-twitter').getAttribute('href'))!);
   check('the post links to this exact comparison', (await postLink()).searchParams.get('url') === shareAddress, (await postLink()).searchParams.get('url') ?? '');
   await page.locator('#share-text').fill('  My own words, kept as typed  ');
   check('the post carries the visitor’s words exactly', (await postLink()).searchParams.get('text') === '  My own words, kept as typed  ');

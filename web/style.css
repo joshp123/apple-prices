@@ -297,7 +297,7 @@ body { display: block; position: relative; }
 .share-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); margin-block-start: var(--space-2); }
 .share-actions > * { inline-size: 100%; justify-content: center; text-align: center; white-space: nowrap; }
 .share-actions > ui-button > button { inline-size: 100%; justify-content: center; }
-.share-actions #post-on-x { grid-column: 1 / -1; }
+.share-actions #post-on-twitter { grid-column: 1 / -1; }
 .share-status { min-block-size: 1lh; font-size: var(--text-label); color: var(--ink-2); }
 
 /* On a phone the lists, pop-ups and share dialog are the kit's sheets, rising from the bottom; the kit moves them, the page sizes them. */
