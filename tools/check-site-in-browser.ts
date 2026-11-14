@@ -444,6 +444,30 @@ async function journeysAboutPlace(): Promise<void> {
   await withoutLocation.close();
 }
 
+// Each place list, opened on a phone with touch and in a phone-sized window without, stays inside the screen, and its search field stays
+// where it opened while the results narrow.
+async function journeysOfThePlaceLists(): Promise<void> {
+  for (const [what, extra] of [['a phone', { hasTouch: true, isMobile: true }], ['a narrow window', {}]] as const) {
+    const context = await browser.newContext({ viewport: sizes.phone, reducedMotion: 'reduce', ...extra });
+    const page = await openPage(context, '/?me=NL&vs=JP');
+    for (const [list, opener] of [['your place', /^You are in Netherlands/], ['the comparison', /^Compared with Japan/]] as const) {
+      await page.getByRole('button', { name: opener }).click();
+      await settled(page);
+      const search = page.getByRole('combobox', { name: 'Search countries, states and provinces' });
+      const listBox = () => page.locator('.list-of-places[data-open]').evaluate(element => { const box = element.getBoundingClientRect(); return { left: box.left, right: box.right, top: box.top, bottom: box.bottom }; });
+      const before = await listBox(), searchTopBefore = (await search.boundingBox())!.y;
+      check(`on ${what} the list of ${list} stays inside the screen`, before.left >= 0 && before.right <= sizes.phone.width && before.top >= 0 && before.bottom <= sizes.phone.height, JSON.stringify(before));
+      await search.fill('japan');
+      await settled(page);
+      const searchTopAfter = (await search.boundingBox())!.y;
+      check(`on ${what} the search field of ${list} stays put while results narrow`, Math.abs(searchTopAfter - searchTopBefore) <= 1, `${searchTopBefore} then ${searchTopAfter}`);
+      await page.keyboard.press('Escape');
+      await settled(page);
+    }
+    await context.close();
+  }
+}
+
 async function journeysOnAPhone(): Promise<void> {
   const context = await newContext('phone');
   const page = await openPage(context, '/?me=NL');
@@ -504,6 +528,7 @@ if (!onlyNamesContaining || onlyNamesContaining === 'journeys') {
   await journeyByMouse();
   await journeyByKeyboard();
   await journeysAboutPlace();
+  await journeysOfThePlaceLists();
   await journeysOnAPhone();
   await journeysWhenThingsFail();
 }

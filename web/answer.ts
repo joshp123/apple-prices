@@ -15,9 +15,11 @@ import { usEstimateNote, type PageView } from './page-view.ts';
 export type PlacePickerPurpose = 'visitor' | 'compared';
 const rolesInOrder: ComparisonRole[] = ['visitor', 'compared', 'cheapest', 'most-expensive'];
 
-const placePickerHtml = (purpose: PlacePickerPurpose) => `<ui-combobox id="${purpose}-place" presentation="auto">
+// A place list keeps one size and place while its results narrow, so the search field never moves under the visitor's typing:
+// it opens above its place, as tall as the room there allows up to a limit, and never wider than the screen.
+const placePickerHtml = (purpose: PlacePickerPurpose) => `<ui-combobox id="${purpose}-place" modal="pointer">
     <ui-combobox-trigger><button type="button" id="${purpose}-place-button" class="control control-place"></button></ui-combobox-trigger>
-    <ui-combobox-content hidden anchor="#${purpose}-place-button" align="start" side-offset="6" class="list list-of-places">
+    <ui-combobox-content hidden anchor="#${purpose}-place-button" side="top" align="start" side-offset="6" collision-padding="8" class="list list-of-places">
       <div class="list-search"><ui-combobox-input><input autofocus name="${purpose}-place" autocomplete="off" spellcheck="false" placeholder="Search countries, states and provinces…" aria-label="Search countries, states and provinces"></ui-combobox-input></div>
       <div class="list-actions">${purpose === 'visitor' ? `<button type="button" class="text-action" data-action="use-my-location">${icons.locate}<span>Use my location</span></button><p class="list-note" role="status"></p>` : ''}<p class="list-qualifier">${usEstimateNote}</p></div>
       <ui-combobox-empty>No place with that name.</ui-combobox-empty>
