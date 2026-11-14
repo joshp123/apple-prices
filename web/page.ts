@@ -3,13 +3,11 @@ import { fromBinary } from '@bufbuild/protobuf';
 import { PriceSnapshotSchema, type PriceSnapshot } from '../src/generated/apple_prices/v1/price_snapshot_pb.js';
 import { countryCodeOf, isKnownPlaceCode, placeCodeForCountryCode, placeNameAfterIn } from '../src/places.ts';
 import { canCompareWith, priceComparison, type PriceComparison } from '../src/price-comparison.ts';
-import { roleWordingOnPage, type PlacesOnPriceLine } from '../src/price-line.ts';
 import { selectionFromShareLink, shareLinkPath } from '../src/share-link.ts';
 import { specLine, type SpecName } from '../src/spec-words.ts';
 import { answerHtml } from './answer.ts';
-import { isPhoneWidth, type OpenPanel, type PageState, type PageView } from './page-view.ts';
+import { isPhoneWidth, roleWordingOnPage, type OpenPanel, type PageState, type PageView } from './page-view.ts';
 import { openPanelHtml, placePopUpHtml, postOnXLink, shareLink } from './panels.ts';
-import { drawPriceLine } from './price-line-on-page.ts';
 import { createPriceMap, mapAreas, type PriceMap } from './price-map.ts';
 import { closestConfigurationWith, currencyWords, productBarHtml, specChangeNote } from './product-bar.ts';
 
@@ -18,7 +16,7 @@ declare const PRICE_SNAPSHOT_PATH: string;
 declare const MAP_PLACES_PATH: string;
 
 const element = <E extends HTMLElement>(selector: string) => document.querySelector<E>(selector)!;
-const bar = element('#bar'), answer = element('#answer'), mapBox = element('#map'), priceLineBox = element('#price-line'), panelsBox = element('#panels'), tip = element('#tip');
+const bar = element('#bar'), answer = element('#answer'), mapBox = element('#map'), panelsBox = element('#panels');
 
 let snapshot: PriceSnapshot, state: PageState, comparison: PriceComparison, priceMap: PriceMap;
 // The place /api/whereami gives for whoever opened the page.
@@ -38,7 +36,7 @@ function view(): PageView {
 
 // ---------- the address ----------
 
-const openPanels: OpenPanel[] = ['product', 'configuration', 'currency', 'visitor-place', 'compared-place', 'places-at-one-price', 'about-prices', 'share'];
+const openPanels: OpenPanel[] = ['product', 'configuration', 'currency', 'visitor-place', 'compared-place', 'about-prices', 'share'];
 
 function stateFromAddress(): PageState {
   const address = new URL(location.href), parameter = (name: string) => address.searchParams.get(name);
@@ -47,14 +45,11 @@ function stateFromAddress(): PageState {
     ...selectionFromShareLink(snapshot, address),
     mapArea: mapAreas[parameter('area') ?? ''] ? parameter('area')! : 'world',
     popUpPlaceCode: placeOrNothing(parameter('place')),
-    popUpOpenedFrom: parameter('from') === 'price-line' ? 'price-line' : 'map',
     openPanel: openPanels.find(panel => panel === parameter('panel')) ?? null,
     placeListCountryCode: placeOrNothing(parameter('list')),
-    placesOnPriceLine: (['countries', 'states-and-provinces'] as PlacesOnPriceLine[]).find(places => places === parameter('line')) ?? null,
     specChangeNote: '',
     shareTextAsTyped: null,
     locationProblem: '',
-    placeCodesAtOnePrice: (parameter('at') ?? '').split(' ').filter(code => isKnownPlaceCode(snapshot, code)),
   };
 }
 
@@ -62,12 +57,9 @@ function addressOfState(): string {
   const address = new URL(shareLinkPath(state), location.origin);
   const set = (name: string, value: string | null, unlessValue: string | null = null) => { if (value && value !== unlessValue) address.searchParams.set(name, value); };
   if (mapAreas[state.mapArea]) set('area', state.mapArea, 'world');
-  set('line', state.placesOnPriceLine);
   set('place', state.popUpPlaceCode);
-  if (state.popUpPlaceCode) set('from', state.popUpOpenedFrom, 'map');
   set('panel', state.openPanel);
   set('list', state.placeListCountryCode);
-  if (state.openPanel === 'places-at-one-price') set('at', state.placeCodesAtOnePrice.join(' '));
   return address.pathname + address.search;
 }
 
@@ -112,16 +104,9 @@ function placeOpenMenu(): void {
 function placePopUp(): void {
   const popUp = panelsBox.querySelector<HTMLElement>('.pop-up');
   if (!popUp || !state.popUpPlaceCode || isPhoneWidth()) return;
-  let x: number, y: number, standsAbove: boolean;
-  const flagOnLine = state.popUpOpenedFrom === 'price-line' ? priceLineBox.querySelector<HTMLElement>(`[data-place="${state.popUpPlaceCode}"]`) : null;
-  if (state.popUpOpenedFrom === 'price-line') {
-    const box = (flagOnLine ?? priceLineBox).getBoundingClientRect();
-    x = box.left + box.width / 2; y = box.top - 10; standsAbove = true;
-  } else {
-    ({ x, y } = priceMap.pointOnPage(state.popUpPlaceCode));
-    standsAbove = y - mapBox.getBoundingClientRect().top > popUp.offsetHeight + 80;
-    y += standsAbove ? -18 : 18;
-  }
+  let { x, y } = priceMap.pointOnPage(state.popUpPlaceCode);
+  const standsAbove = y - mapBox.getBoundingClientRect().top > popUp.offsetHeight + 80;
+  y += standsAbove ? -18 : 18;
   const left = Math.max(12, Math.min(innerWidth - popUp.offsetWidth - 12, x - popUp.offsetWidth / 2));
   const top = Math.max(76, Math.min(innerHeight - popUp.offsetHeight - 12, standsAbove ? y - popUp.offsetHeight : y));
   popUp.style.transform = `translate(${Math.round(left)}px,${Math.round(top)}px)`;
@@ -131,7 +116,6 @@ function placePopUp(): void {
 function drawEverything(): void {
   comparison = priceComparison(snapshot, state);
   bar.innerHTML = productBarHtml(view());
-  drawPriceLine(priceLineBox, view());
   drawAnswer();
   priceMap.fitToContainer();
   priceMap.colourPlaces(view());
@@ -166,7 +150,6 @@ function change(changes: Partial<PageState>, options: ChangeOptions = {}): void 
   }
   if (pricesChanged || before.popUpPlaceCode !== state.popUpPlaceCode) priceMap.colourPlaces(view());
   if (pricesChanged) priceMap.buildLabels(view());
-  if (pricesChanged || before.placesOnPriceLine !== state.placesOnPriceLine || before.mapArea !== state.mapArea) drawPriceLine(priceLineBox, view());
   if (before.mapArea !== state.mapArea) {
     priceMap.showArea(state.mapArea, true);
   }
@@ -191,7 +174,7 @@ function whatToFocusInOpenPanel(): HTMLElement | undefined {
 }
 
 const panelOpener = (stateWhenOpen: PageState) =>
-  (stateWhenOpen.openPanel === 'places-at-one-price' ? `count-${stateWhenOpen.placeCodesAtOnePrice[0]}` : stateWhenOpen.openPanel === 'visitor-place' && stateWhenOpen.placeListCountryCode && document.querySelector('[data-focus="open-visitor-place-in-country"]') ? 'open-visitor-place-in-country' : `open-${stateWhenOpen.openPanel}`);
+  (stateWhenOpen.openPanel === 'visitor-place' && stateWhenOpen.placeListCountryCode && document.querySelector('[data-focus="open-visitor-place-in-country"]') ? 'open-visitor-place-in-country' : `open-${stateWhenOpen.openPanel}`);
 
 // ---------- where the visitor is ----------
 
@@ -271,12 +254,11 @@ document.addEventListener('click', event => {
     case 'list-every-place': return change({ placeListCountryCode: null });
     case 'use-my-location': return useMyLocation();
     case 'see-price-where-opened': return seePriceWhereOpened();
-    case 'list-places-at-one-price': return change({ openPanel: 'places-at-one-price', placeCodesAtOnePrice: data.places!.split(' '), popUpPlaceCode: null });
     case 'compare-with':
       change({ comparedPlaceCode: data.place || null, openPanel: null, placeListCountryCode: null, popUpPlaceCode: null }, { focusAfterwards: data.place ? 'row-compared' : 'open-compared-place' });
       return announce(state.comparedPlaceCode ? `Comparing with ${placeNameAfterIn(snapshot, state.comparedPlaceCode)}` : 'No longer comparing');
-    case 'show-place': return change({ popUpPlaceCode: data.place!, popUpOpenedFrom: data.from === 'price-line' ? 'price-line' : 'map', openPanel: null });
-    case 'show-map-area': return change({ mapArea: data.area!, popUpPlaceCode: null, placesOnPriceLine: null });
+    case 'show-place': return change({ popUpPlaceCode: data.place!, openPanel: null });
+    case 'show-map-area': return change({ mapArea: data.area!, popUpPlaceCode: null });
     case 'zoom-map':
       priceMap.zoomBy(Number(data.by));
       return mapMovedByHand();
@@ -322,7 +304,7 @@ document.addEventListener('keydown', event => {
   }
   const isForwards = event.key === 'ArrowRight' || event.key === 'ArrowDown', isBackwards = event.key === 'ArrowLeft' || event.key === 'ArrowUp';
   if (!isForwards && !isBackwards) return;
-  const group = focused.closest<HTMLElement>('[role="radiogroup"], .hanging-flags, .menu-list, .menu-columns');
+  const group = focused.closest<HTMLElement>('[role="radiogroup"], .menu-list, .menu-columns');
   if (!group || focused.tagName === 'INPUT') return;
   const choices = [...group.querySelectorAll<HTMLElement>('button:not([hidden])')];
   const next = choices[(choices.indexOf(focused) + (isForwards ? 1 : -1) + choices.length) % choices.length];
@@ -331,19 +313,12 @@ document.addEventListener('keydown', event => {
   if (group.getAttribute('role') === 'radiogroup') { next.focus(); next.click(); } else next.focus();
 });
 
-// One tip names the flag under the pointer or the keyboard; the same place lights up on the map.
-function showTipFor(target: HTMLElement | null): void {
-  for (const lit of document.querySelectorAll('.is-lit')) lit.classList.remove('is-lit');
+// Pointing at or focusing a map label lights up its place on the map.
+function lightUpPlaceOf(target: HTMLElement | null): void {
   priceMap?.lightUp(target?.dataset.lightsUp ?? null);
-  if (target) priceLineBox.querySelector(`[data-place="${target.dataset.lightsUp}"]`)?.classList.add('is-lit');
-  if (!target?.dataset.tip) { tip.hidden = true; return; }
-  tip.textContent = target.dataset.tip;
-  tip.hidden = false;
-  const box = target.querySelector('.flag')!.getBoundingClientRect();
-  tip.style.transform = `translate(${Math.round(Math.max(8, Math.min(innerWidth - tip.offsetWidth - 8, box.left + box.width / 2 - tip.offsetWidth / 2)))}px,${Math.round(box.top - tip.offsetHeight - 6)}px)`;
 }
-document.addEventListener('pointerover', event => showTipFor((event.target as Element).closest<HTMLElement>('[data-lights-up]')));
-document.addEventListener('focusin', event => showTipFor((event.target as Element).closest<HTMLElement>('[data-lights-up]')));
+document.addEventListener('pointerover', event => lightUpPlaceOf((event.target as Element).closest<HTMLElement>('[data-lights-up]')));
+document.addEventListener('focusin', event => lightUpPlaceOf((event.target as Element).closest<HTMLElement>('[data-lights-up]')));
 
 addEventListener('popstate', () => {
   state = stateFromAddress();
@@ -356,7 +331,6 @@ addEventListener('resize', () => {
   cancelAnimationFrame(redrawForNewSize);
   redrawForNewSize = requestAnimationFrame(() => {
     if (priceMap.fitToContainer()) { priceMap.buildLabels(view()); priceMap.showArea(mapAreas[state.mapArea] ? state.mapArea : 'world', false); }
-    drawPriceLine(priceLineBox, view());
     drawAnswer();
     drawPanels();
   });
@@ -375,7 +349,7 @@ try {
   snapshot = fromBinary(PriceSnapshotSchema, snapshotBytes);
   state = stateFromAddress();
   comparison = priceComparison(snapshot, state);
-  priceMap = createPriceMap(mapBox, mapPlaces, placeCode => { if (placeCode || state.popUpPlaceCode) change({ popUpPlaceCode: placeCode, popUpOpenedFrom: 'map' }); }, () => { mapMovedByHand(); placePopUp(); });
+  priceMap = createPriceMap(mapBox, mapPlaces, placeCode => { if (placeCode || state.popUpPlaceCode) change({ popUpPlaceCode: placeCode }); }, () => { mapMovedByHand(); placePopUp(); });
   drawEverything();
   priceMap.showArea(state.mapArea, false);
   history.replaceState(null, '', addressOfState());

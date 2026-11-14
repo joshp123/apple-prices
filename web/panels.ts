@@ -3,16 +3,14 @@ import countryToCurrency from 'country-to-currency';
 import { ProductCategory } from '../src/generated/apple_prices/v1/price_snapshot_pb.js';
 import { widelyHeldCurrencyCodes } from '../src/money.ts';
 import { countriesTaxedByStateOrProvince, countryCodeOf, isStateOrProvince, placeName, stateOrProvinceWords } from '../src/places.ts';
-import { priceColour } from '../src/price-colour.ts';
 import {
   canCompareWith, differenceFromVisitorWords, placePriceOf, priceComparison, priceWords, salesTaxSentence, shareSentence, unpricedSentence,
 } from '../src/price-comparison.ts';
-import { priceLineMarks, type PriceLineMark } from '../src/price-line.ts';
 import { shareCardPath, shareLinkPath } from '../src/share-link.ts';
 import { specLine } from '../src/spec-words.ts';
 import { countryName } from '../src/take-home-prices.ts';
 import { escapeHtml, flagHtml, icons } from './html.ts';
-import { placesShownOnPriceLine, type PageView } from './page-view.ts';
+import type { PageView } from './page-view.ts';
 import { currencyWords, listsWholeConfigurations, specChoicesHtml } from './product-bar.ts';
 
 const panelHeadHtml = (title: string) => `<div class="panel-head"><h2 class="panel-title">${title}</h2><button type="button" class="button button-quiet" data-action="close-panel">Done</button></div>`;
@@ -96,23 +94,6 @@ function placeListHtml(view: PageView, purpose: 'visitor-place' | 'compared-plac
     <div class="menu-list" role="listbox" aria-label="${title}">${rows}</div><p class="menu-note menu-nothing-found" hidden>No place with that name.</p></div>`;
 }
 
-function rankedPlaceRowHtml({ comparison }: PageView, mark: PriceLineMark): string {
-  const cheapestPriceInUsDollars = comparison.prices[0].takeHomePriceInUsDollars;
-  return `<button type="button" class="menu-item menu-place" data-action="show-place" data-place="${mark.placeCode}" data-from="price-line" data-focus="ranked-${mark.placeCode}">${flagHtml(mark.placeCode)}
-    <span class="menu-name">${escapeHtml(mark.placeName)}${mark.roleWords ? `<span class="menu-role">${escapeHtml(mark.roleWords)}</span>` : ''}</span>
-    <span class="menu-amount"><span class="swatch" style="background:${priceColour((mark.lowestPriceInUsDollars + mark.highestPriceInUsDollars) / 2, cheapestPriceInUsDollars)}"></span>${priceWords(comparison, mark.placePrice, { shortenMillions: true })!.inDisplayCurrency}</span></button>`;
-}
-
-const marksCheapestFirst = (view: PageView) => priceLineMarks(view.comparison, placesShownOnPriceLine(view.state), view.roleWording)
-  .sort((a, b) => a.lowestPriceInUsDollars - b.lowestPriceInUsDollars || a.placeName.localeCompare(b.placeName));
-
-// The places behind one count on the price line.
-function placesAtOnePriceHtml(view: PageView): string {
-  const places = marksCheapestFirst(view).filter(mark => view.state.placeCodesAtOnePrice.includes(mark.placeCode));
-  const title = `${places.length} places at about the same price`;
-  return `<div class="panel menu menu-of-places menu-of-all-prices" role="dialog" aria-label="${title}" data-opened-by="count-${view.state.placeCodesAtOnePrice[0]}" data-opens="upwards">${panelHeadHtml(title)}<p class="menu-title">${title}</p><div class="menu-list">${places.map(mark => rankedPlaceRowHtml(view, mark)).join('')}</div></div>`;
-}
-
 const dayWords = (unixSeconds: bigint) => new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Number(unixSeconds) * 1000));
 
 function aboutPricesHtml({ snapshot }: PageView): string {
@@ -193,7 +174,6 @@ export function openPanelHtml(view: PageView, countryCodesOnMap: string[]): stri
     case 'configuration': return configurationListHtml(view);
     case 'currency': return currencyListHtml(view);
     case 'visitor-place': case 'compared-place': return placeListHtml(view, view.state.openPanel, countryCodesOnMap);
-    case 'places-at-one-price': return placesAtOnePriceHtml(view);
     case 'about-prices': return aboutPricesHtml(view);
     case 'share': return shareDialogHtml(view);
     default: return '';

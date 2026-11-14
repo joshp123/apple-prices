@@ -49,7 +49,6 @@ const pageStates: [name: string, address: string, countryOpenedIn?: string][] = 
   ['30-pop-up-california', '/?me=NL&area=united-states&place=US-CA'],
   ['31-pop-up-united-states', '/?me=NL&place=US'],
   ['32-pop-up-palestine', '/?me=NL&area=eastern-mediterranean&place=PS'],
-  ['33-pop-up-from-price-line', '/?me=NL&place=JP&from=price-line'],
   ['34-comparison-japan', '/?me=NL&vs=JP'],
   ['35-compare-list', '/?me=NL&panel=compared-place'],
   ['36-visitor-place-list', '/?me=NL&panel=visitor-place'],
@@ -57,11 +56,9 @@ const pageStates: [name: string, address: string, countryOpenedIn?: string][] = 
   ['38-california-compared-with-ontario', '/?me=US-CA&vs=CA-ON'],
   ['39-share', '/?me=NL&vs=JP&panel=share'],
   ['40-share-palestine', '/?me=PS&panel=share'],
-  ['41-price-line-states-and-provinces', '/?me=US-CA&line=states-and-provinces'],
   ['42-all-prices', '/?me=NL&panel=all-prices'],
   ['43-prices-include-tax', '/?me=NL&panel=about-prices'],
   ['48-shared-link-opened-in-another-country', '/iphone-18-pro/6.3in-256gb?me=NL', 'DE'],
-  ['49-places-at-one-price', '/?me=NL&panel=places-at-one-price&at=BE+FR+SE+IE+IT+PT+HU+FI+NO'],
 ];
 const shareCards: [string, string][] = [
   ['card-01-netherlands', '/share-card/iphone-18-pro/6.3in-256gb.png?me=NL'],
@@ -101,10 +98,6 @@ const laptopContext = () => browser.newContext({ viewport: laptop, deviceScaleFa
 const phoneContext = () => browser.newContext({ viewport: phone, deviceScaleFactor: 2, hasTouch: true, isMobile: true, reducedMotion: 'reduce' });
 
 const answerShowsEverything = (page: Page) => page.locator('#answer').evaluate(answer => answer.scrollHeight <= answer.clientHeight);
-const priceLineFlagsAreApart = (page: Page) => page.locator('.hanging-flags').evaluate(box => {
-  const boxes = [...box.querySelectorAll('.hanging-flag .flag, .hanging-flag .span-of-prices, .count-of-places')].map(each => ({ owner: each.closest('button'), box: each.getBoundingClientRect() }));
-  return boxes.every((a, index) => boxes.slice(index + 1).every(b => a.owner === b.owner || a.box.right <= b.box.left + 0.5 || b.box.right <= a.box.left + 0.5 || a.box.bottom <= b.box.top + 0.5 || b.box.bottom <= a.box.top + 0.5));
-});
 
 async function photographEveryState(): Promise<void> {
   for (const [sizeName, newContext] of [['laptop', laptopContext], ['phone', phoneContext]] as const) {
@@ -119,7 +112,6 @@ async function photographEveryState(): Promise<void> {
       if (sizeName === 'laptop') {
         check(`${sizeName} ${name} fits one screen`, overflow.down <= 0, `${overflow.down}px`);
         check(`${sizeName} ${name} shows the whole answer`, await answerShowsEverything(page));
-        check(`${sizeName} ${name} has no flag over another on the price line`, await priceLineFlagsAreApart(page));
       }
       // A phone page may be longer than the screen; a panel over it is photographed as the visitor sees it, on the screen.
       const hasPanelOpen = /panel=|place=/.test(address);
@@ -255,17 +247,7 @@ async function journeyByKeyboard(): Promise<void> {
   await page.keyboard.press('+');
   await page.keyboard.press('ArrowRight');
   check('plus and arrow keys zoom and move the map', await page.locator('.map-land').getAttribute('transform') !== landBefore);
-  const count = page.locator('.count-of-places').first();
-  const placesBehindCount = Number((await count.innerText()).replace('+', ''));
-  await count.click();
-  check('a count on the price line opens the names and prices of its places', await page.locator('.menu-place').count() === placesBehindCount && placesBehindCount > 1 && /\$[\d,]+/.test(await page.locator('.menu-list').innerText()), await page.locator('.menu').innerText());
-  await page.locator('.menu-place').first().click();
-  check('a place in that list opens its pop-up', await page.locator('.pop-up').count() === 1);
-  await page.keyboard.press('Escape');
-  await page.locator('.hanging-flag').first().focus();
-  check('a flag on the price line names itself for the keyboard', await page.locator('#tip').isVisible() && /\$/.test(await page.locator('#tip').innerText()));
-  await page.keyboard.press('Enter');
-  check('Enter on a flag opens its pop-up', await page.locator('.pop-up').count() === 1);
+  check('the map key shows the cheapest and dearest price', /^\$[\d,]+\$[\d,]+NopricefromApple$/.test((await page.locator('.map-key').innerText()).replace(/\s/g, '')), await page.locator('.map-key').innerText());
   await context.close();
 }
 
@@ -342,14 +324,14 @@ async function journeysWhenThingsFail(): Promise<void> {
   const shortScreen = await browser.newContext({ viewport: { width: 1280, height: 720 }, reducedMotion: 'reduce' });
   const shortPage = await openPage(shortScreen, '/?me=US-CA&vs=CA-ON');
   await settled(shortPage);
-  check('at 1280 by 720 every row of the answer shows without scrolling inside it', await answerShowsEverything(shortPage) && await priceLineFlagsAreApart(shortPage));
+  check('at 1280 by 720 every row of the answer shows without scrolling inside it', await answerShowsEverything(shortPage));
   await shortPage.screenshot({ path: `${photographFolder}/laptop-46-short-screen-1280-by-720.png` });
   const largeText = await phoneContext();
   const largeTextPage = await openPage(largeText, `${topMacBookPro}?me=VN&in=VND&vs=KR`);
   await largeTextPage.addStyleTag({ content: 'html { font-size: 130%; } body { zoom: 1.3; }' });
   await settled(largeTextPage);
   check('enlarged text on a phone scrolls down, never sideways', await largeTextPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
-  check('enlarged text on a phone clips no control', await largeTextPage.evaluate(() => [...document.querySelectorAll('.bar button, .answer button, .map-areas button, .price-line-head button')]
+  check('enlarged text on a phone clips no control', await largeTextPage.evaluate(() => [...document.querySelectorAll('.bar button, .answer button, .map-zoom button')]
     .every(control => { const box = control.getBoundingClientRect(); return box.width === 0 || (box.left >= -1 && box.right <= document.documentElement.clientWidth + 1); })));
   await largeTextPage.screenshot({ path: `${photographFolder}/phone-47-enlarged-text.png`, fullPage: true });
   await Promise.all([context.close(), withoutScript.close(), shortScreen.close(), largeText.close()]);

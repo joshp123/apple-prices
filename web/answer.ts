@@ -18,7 +18,7 @@ function placeRowHtml({ snapshot, comparison, roleWording, visitorInComparisons,
   const isCompared = column.role === 'compared';
   const placeControl = isCompared
     ? `<button type="button" class="row-place" data-action="open-panel" data-panel="compared-place" data-focus="row-compared" aria-haspopup="dialog" aria-expanded="${state.openPanel === 'compared-place'}" aria-label="Compared with ${escapeHtml(name)}. Change">`
-    : `<button type="button" class="row-place" data-action="show-place" data-place="${column.placeCode}" data-from="price-line" data-focus="row-${column.role}">`;
+    : `<button type="button" class="row-place" data-action="show-place" data-place="${column.placeCode}" data-focus="row-${column.role}">`;
   return `<div class="row">
     ${placeControl}
       ${flagHtml(column.placeCode, 'flag-in-row')}
@@ -59,14 +59,14 @@ function visitorHtml({ snapshot, state, comparison, openerPlaceCode }: PageView)
     const method = salesTaxSentence(snapshot, price.price) || 'Including tax.';
     return `${where}<h1 class="lead-sentence">${productName} ${costsWhom}</h1>
       <p class="lead-price ${amountSizeClass(words!.inDisplayCurrency)}">${words!.inDisplayCurrency}</p>
-      ${words!.inLocalCurrency ? `<p class="lead-price-in-local-money">${words!.inLocalCurrency}</p>` : ''}
+      ${words!.inLocalCurrency ? `<p class="lead-price-in-local-money">(${words!.inLocalCurrency})</p>` : ''}
       <button type="button" class="lead-method text-action" data-action="open-panel" data-panel="about-prices" data-focus="open-about-prices">${escapeHtml(method)}</button>${seeOwnPrice}`;
   }
   if (price.kind === 'priced-by-state-or-province') {
     const wording = stateOrProvinceWords(place);
     return `${where}<h1 class="lead-sentence">${productName} ${costsWhom}</h1>
       <p class="lead-price lead-price-range">${words!.inDisplayCurrency}</p>
-      ${words!.inLocalCurrency ? `<p class="lead-price-in-local-money">${words!.inLocalCurrency}</p>` : ''}
+      ${words!.inLocalCurrency ? `<p class="lead-price-in-local-money">(${words!.inLocalCurrency})</p>` : ''}
       <p class="lead-method">It depends on ${openerPlaceCode ? 'the' : 'your'} ${wording.one}.${place === 'US' ? ' Sales tax is the population-weighted average for each state.' : ''}</p>
       <div class="lead-actions"><button type="button" class="button" data-action="open-panel" data-panel="visitor-place" data-place-list-country="${place}" data-focus="open-visitor-place-in-country">${wording.chooseYours}</button>${useMyLocation}</div>${locationProblem}${seeOwnPrice}`;
   }
