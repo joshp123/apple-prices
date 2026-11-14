@@ -17,9 +17,10 @@ export type TakeHomePrice = {
 };
 
 const countryNames = new Intl.DisplayNames(['en-GB'], { type: 'region' });
+const everydayCountryNames: Record<string, string> = { HK: 'Hong Kong', MO: 'Macau', TR: 'Turkey', PS: 'Palestine' };
 
 export function countryName(countryCode: string): string {
-  return countryNames.of(countryCode) ?? countryCode;
+  return everydayCountryNames[countryCode] ?? countryNames.of(countryCode) ?? countryCode;
 }
 
 export function unitsPerUsDollar(snapshot: PriceSnapshot, currencyCode: string): number {
