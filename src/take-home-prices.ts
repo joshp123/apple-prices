@@ -14,6 +14,7 @@ export type TakeHomePrice = {
   recyclingFeeName: string;
   takeHomePrice: number;
   takeHomePriceInUsDollars: number;
+  applePageUrl: string;
 };
 
 const countryNames = new Intl.DisplayNames(['en-GB'], { type: 'region' });
@@ -42,7 +43,7 @@ export function takeHomePrices(snapshot: PriceSnapshot, productId: string, confi
     if (!shelfPriceEntry) continue;
     const shelfPrice = Number(shelfPriceEntry.priceInHundredths) / 100;
     const rate = unitsPerUsDollar(snapshot, store.currencyCode);
-    const common = { currencyCode: store.currencyCode, priceSourceKind: store.priceSourceKind, shelfPrice, shelfPriceIncludesSalesTax: store.shelfPriceIncludesSalesTax };
+    const common = { currencyCode: store.currencyCode, priceSourceKind: store.priceSourceKind, shelfPrice, shelfPriceIncludesSalesTax: store.shelfPriceIncludesSalesTax, applePageUrl: shelfPriceEntry.sourcePageUrl };
     const regions = snapshot.salesTaxRegions.filter(region => region.appleStoreId === store.appleStoreId);
     if (store.shelfPriceIncludesSalesTax || !regions.length) {
       prices.push({ ...common, territoryCode: store.countryCode, territoryName: countryName(store.countryCode), additionalSalesTaxPercent: 0, recyclingFee: 0, recyclingFeeName: '', takeHomePrice: shelfPrice, takeHomePriceInUsDollars: shelfPrice / rate });
