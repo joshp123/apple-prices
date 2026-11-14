@@ -106,6 +106,8 @@ const shareCards: [string, string][] = [
   ['card-09-airtag', '/share-card/airtag/1-pack.png?me=NL'],
   ['card-10-no-visitor', '/share-card/iphone-18-pro/6.3in-256gb.png'],
   ['card-11-macbook-pro-california-and-united-kingdom', '/share-card/macbook-pro/14in-m6-12cpu-12gpu-16gb-memory-1000gb-standard-glass.png?me=US-CA&vs=GB'],
+  ['card-12-longest-place-names', `/share-card${topMacBookPro}.png?me=CA-NT&vs=AE&in=EUR`],
+  ['card-13-range-against-a-province-in-yen', '/share-card/ipad-pro/13in-2000gb-wi-fi-cellular-nano-texture-glass.png?me=US&vs=CA-NT&in=JPY'],
 ];
 
 const failures: string[] = [];

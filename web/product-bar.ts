@@ -4,12 +4,12 @@ import '@ui-sdk/web/dialog';
 import '@ui-sdk/web/select';
 import type { UiSelectElement } from '@ui-sdk/web';
 import countryToCurrency from 'country-to-currency';
-import { ProductCategory, type ProductConfiguration } from '../src/generated/apple_prices/v1/price_snapshot_pb.js';
+import { ProductCategory, type Product, type ProductConfiguration } from '../src/generated/apple_prices/v1/price_snapshot_pb.js';
 import { widelyHeldCurrencyCodes } from '../src/money.ts';
 import { countryCodeOf } from '../src/places.ts';
 import { priceComparison, priceWords } from '../src/price-comparison.ts';
 import { productPhotoFor } from '../src/product-photos.ts';
-import { specLine } from '../src/spec-words.ts';
+import { specLine, specParts } from '../src/spec-words.ts';
 import { escapeHtml, icons, productPhotoHtml } from './html.ts';
 import type { PageView } from './page-view.ts';
 
@@ -22,16 +22,16 @@ const categoryTitles: [ProductCategory, string][] = [
   [ProductCategory.VISION, 'Vision'], [ProductCategory.AIRPODS, 'AirPods'], [ProductCategory.HOME, 'TV and Home'], [ProductCategory.ACCESSORY, 'Accessories'],
 ];
 
-const selectHtml = (id: string, label: string, buttonClass: string) => `<ui-select id="${id}" presentation="auto">
+const selectHtml = (id: string, label: string, buttonClass: string, shownValue = '<ui-select-value></ui-select-value>') => `<ui-select id="${id}" presentation="auto">
     <ui-select-label class="visually-hidden">${label}</ui-select-label>
-    <ui-select-trigger><button type="button" class="control ${buttonClass}"><ui-select-value></ui-select-value></button></ui-select-trigger>
+    <ui-select-trigger><button type="button" class="control ${buttonClass}">${shownValue}</button></ui-select-trigger>
     <ui-select-content hidden class="list" side-offset="6" align="start"></ui-select-content>
   </ui-select>`;
 
 export const productBarHtml = `
   <div class="bar-photo" aria-hidden="true"></div>
   <div class="bar-cell bar-product">${selectHtml('product-select', 'Product', 'control-product')}</div>
-  <div class="bar-cell bar-configuration">${selectHtml('configuration-select', 'Configuration', 'control-configuration')}<p class="bar-specs"></p></div>
+  <div class="bar-cell bar-configuration">${selectHtml('configuration-select', 'Configuration', 'control-configuration', '<span class="specs-in-full"></span><span class="specs-in-short"></span>')}<p class="bar-specs"></p></div>
   <div class="bar-cell bar-currency">${selectHtml('currency-select', 'Prices in', 'control-currency')}</div>
   <div class="bar-cell bar-share"><ui-dialog-trigger for="share-dialog"><button type="button" class="control control-primary">${icons.share}<span>Share</span></button></ui-dialog-trigger></div>`;
 
@@ -73,6 +73,16 @@ function inShopOrder(configurations: ProductConfiguration[]): ProductConfigurati
     .sort((a, b) => difference(a.configuration, b.configuration) || a.index - b.index).map(({ configuration }) => configuration);
 }
 
+// On a phone the closed control says what tells this configuration from the others: size, chip, memory and storage, then anything
+// else that differs from the usual (Cellular, Nano-texture glass). The list keeps every detail. Two configurations that would read the
+// same are written in full.
+const usualSpecWords = new Set(['Wi-Fi', 'Standard glass']);
+function shortSpecLine(product: Product, configuration: ProductConfiguration): string {
+  const short = (candidate: ProductConfiguration) => specParts(product, candidate).map(part => part.replace(/ \(.*\)$/, '')).filter(part => !usualSpecWords.has(part)).join(', ');
+  const words = short(configuration);
+  return product.configurations.some(other => other !== configuration && short(other) === words) ? specLine(product, configuration) : words;
+}
+
 export function drawProductBar(bar: HTMLElement, view: PageView): void {
   const { snapshot, state, comparison: { product, configuration } } = view;
   bar.querySelector('.bar-photo')!.innerHTML = productPhotoHtml(productPhotoFor(product.productId, configuration.configurationId), 40);
@@ -91,6 +101,8 @@ export function drawProductBar(bar: HTMLElement, view: PageView): void {
   if (hasChoice) {
     const configurations = inShopOrder(product.configurations).map(candidate => itemHtml(candidate.configurationId, specLine(product, candidate), priceForVisitor(view, product.productId, candidate.configurationId))).join('');
     fillSelect(bar.querySelector<UiSelectElement>('#configuration-select')!, configurations, configuration.configurationId);
+    bar.querySelector('.specs-in-full')!.textContent = specLine(product, configuration);
+    bar.querySelector('.specs-in-short')!.textContent = shortSpecLine(product, configuration);
   }
 
   const sentenceCase = (words: string) => words[0].toUpperCase() + words.slice(1);

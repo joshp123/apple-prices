@@ -6,9 +6,9 @@ import type { UiComboboxElement } from '@ui-sdk/web';
 import { countriesTaxedByStateOrProvince, countryCodeOf, isStateOrProvince, placeName, placeNameAfterIn, stateOrProvinceWords } from '../src/places.ts';
 import { priceColour } from '../src/price-colour.ts';
 import {
-  canCompareWith, differenceFromVisitorWords, placePriceOf, priceWords, salesTaxSentence, unpricedSentence, type ComparisonColumn, type ComparisonRole, type PlacePrice,
+  canCompareWith, differenceFromVisitorWords, placePriceOf, priceWords, salesTaxLabel, salesTaxSentence, unpricedSentence, type ComparisonColumn, type ComparisonRole, type PlacePrice,
 } from '../src/price-comparison.ts';
-import { countryName, type TakeHomePrice } from '../src/take-home-prices.ts';
+import { countryName } from '../src/take-home-prices.ts';
 import { escapeHtml, flagHtml, icons } from './html.ts';
 import type { PageView } from './page-view.ts';
 
@@ -44,12 +44,17 @@ export const answerHtml = `<div class="band">${rolesInOrder.map(columnHtml).join
 const placeWordsHtml = (placeCode: string, name: string) => `${flagHtml(placeCode, 'flag-in-column')}<span class="place-words">${escapeHtml(name)}</span>`;
 const emptyPlaceHtml = (words: string) => `<span class="flag flag-in-column flag-empty" aria-hidden="true">${icons.plus}</span><span class="place-words">${words}</span>`;
 const textAction = (action: string, words: string, extra = '') => `<button type="button" class="text-action" data-action="${action}"${extra}>${words}</button>`;
+// "Choose your province or territory" does not fit a phone's column, so it shows shorter and keeps its whole name for screen readers.
+const chooseYoursShort: Record<string, string> = { CA: 'Choose your province' };
 
-// What the visitor's price includes, in a few words; the pop-up behind them says how it was worked out.
-function taxWords(price: TakeHomePrice): string {
+// What the visitor's price includes, in a few words; the pop-up behind them says how it was worked out. A US state's rate is the
+// population-weighted average of its cities and counties, and says so, since few people pay exactly that.
+function taxWords(placePrice: PlacePrice & { kind: 'priced' }): string {
+  const price = placePrice.price;
   if (price.shelfPriceIncludesSalesTax) return 'Including tax';
   if (!price.additionalSalesTaxPercent) return 'No sales tax';
-  return `Including ${price.additionalSalesTaxPercent}% sales tax`;
+  const average = salesTaxLabel(placePrice) === 'Population-weighted average' ? ', population-weighted average' : '';
+  return `Including ${price.additionalSalesTaxPercent}% sales tax${average}`;
 }
 
 // The share of the most expensive price, as a bar in the price's own map colour. A range of states shades from its lowest price's colour to its highest's.
@@ -64,7 +69,7 @@ function meterStyle({ comparison }: PageView, placePrice: PlacePrice | undefined
 
 function noteHtml(view: PageView, column: ComparisonColumn | undefined, role: ComparisonRole): string {
   const { snapshot, state, comparison, openerPlaceCode, visitorInComparisons } = view;
-  const useMyLocation = textAction('use-my-location', `${icons.locate}<span>Use my location</span>`);
+  const useMyLocation = textAction('use-my-location', `${icons.locate}<span class="words-of-icon">Use my location</span>`, ' aria-label="Use my location"');
   const locationProblem = state.locationProblem ? `<span class="note-problem" role="status">${escapeHtml(state.locationProblem)}</span>` : '';
   const seeOwnPrice = openerPlaceCode ? textAction('see-price-where-opened', `See the price in ${escapeHtml(placeNameAfterIn(snapshot, openerPlaceCode))}`) : '';
   const price = column?.placePrice;
@@ -74,12 +79,14 @@ function noteHtml(view: PageView, column: ComparisonColumn | undefined, role: Co
   }
   if (!price) return `<span class="note-actions">${useMyLocation}</span>${locationProblem}`;
   if (price.kind === 'priced') {
-    const taxDetails = `<ui-popover-trigger for="tax-details"><button type="button" class="text-action">${taxWords(price.price)}</button></ui-popover-trigger>`;
+    const taxDetails = `<ui-popover-trigger for="tax-details"><button type="button" class="text-action">${taxWords(price)}</button></ui-popover-trigger>`;
     return `<span class="note-actions">${taxDetails}${seeOwnPrice}</span>`;
   }
   if (price.kind === 'priced-by-state-or-province') {
-    const chooseYours = textAction('open-visitor-place', stateOrProvinceWords(column!.placeCode).chooseYours);
-    return `<span class="note-actions">${chooseYours}${useMyLocation}${seeOwnPrice}</span>${locationProblem}`;
+    const { chooseYours } = stateOrProvinceWords(column!.placeCode), shortWords = chooseYoursShort[column!.placeCode];
+    const chooseButton = textAction('open-visitor-place', shortWords ?? chooseYours, shortWords ? ` aria-label="${chooseYours}"` : '');
+    const average = column!.placeCode === 'US' ? '<span>Sales tax: population-weighted average by state</span>' : '';
+    return `${average}<span class="note-actions">${chooseButton}${useMyLocation}${seeOwnPrice}</span>${locationProblem}`;
   }
   return `<span class="note-actions">${seeOwnPrice}</span>`;
 }
@@ -113,6 +120,7 @@ export function drawAnswer(answer: HTMLElement, view: PageView): void {
     part('local').textContent = words?.inLocalCurrency ? `(${words.inLocalCurrency})` : '';
     part('note').innerHTML = noteHtml(view, column, role);
     part('meter').querySelector<HTMLElement>('.column-meter-fill')!.style.cssText = meterStyle(view, column?.placePrice);
+    columnElement.classList.toggle('is-empty', !column);
     if (words && column!.placePrice.kind === 'priced' && words.inDisplayCurrency.length > longestAmount.length) longestAmount = words.inDisplayCurrency;
   }
   answer.querySelector<HTMLElement>('.band')!.dataset.amountLength = amountLength(longestAmount);

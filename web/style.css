@@ -13,8 +13,8 @@
   --raised: #ffffff;
   --wash: #f0f0f2;
   --sea: #f5f5f7;
-  --land: #e4e4e9;
-  --land-stripe: #bdbdc5;
+  --land: #e8e8ec;
+  --land-stripe: #d3d3d9;
   --rule: #e3e3e8;
   --edge: #d2d2d7;
   --ink: #1d1d1f;
@@ -70,8 +70,8 @@
     --raised: #232325;
     --wash: #2c2c2e;
     --sea: #1c1c1e;
-    --land: #333336;
-    --land-stripe: #4d4d52;
+    --land: #2c2c2f;
+    --land-stripe: #3b3b3f;
     --rule: #2f2f32;
     --edge: #48484c;
     --ink: #f5f5f7;
@@ -135,7 +135,7 @@ button { margin: 0; padding: 0; border: 0; background: none; cursor: pointer; te
 .control::after { margin-inline-start: auto; }
 .control ui-select-value, .control .place-words { display: block; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; }
 .control-primary { border-color: var(--ink); background: var(--ink); color: var(--paper); font-weight: 500; }
-.text-action { display: inline-flex; align-items: center; gap: var(--space-1); block-size: auto; padding: 0; border: 0; border-radius: 2px; background: none; font: inherit; color: var(--ink); text-decoration: underline; text-decoration-color: var(--edge); text-underline-offset: 3px; white-space: nowrap; }
+.text-action { position: relative; display: inline-flex; align-items: center; gap: var(--space-1); max-inline-size: 100%; block-size: auto; padding: 0; border: 0; border-radius: 2px; background: none; font: inherit; color: var(--ink); text-align: start; text-decoration: underline; text-decoration-color: var(--edge); text-underline-offset: 3px; white-space: normal; }
 .icon-button { display: inline-grid; place-items: center; flex: none; inline-size: 32px; block-size: 32px; border-radius: 50%; color: var(--ink-2); background: var(--wash); }
 @media (hover: hover) and (pointer: fine) {
   .control:hover { background: var(--wash); }
@@ -157,6 +157,7 @@ button { margin: 0; padding: 0; border: 0; background: none; cursor: pointer; te
 .bar-share { grid-area: share; }
 .bar-cell { display: flex; align-items: center; min-inline-size: 0; }
 .control-product { font-weight: 600; }
+.specs-in-short { display: none; }
 .bar-specs { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .product-photo { display: grid; place-items: center; flex: none; }
 .product-photo-crop { position: relative; display: block; overflow: hidden; mix-blend-mode: multiply; }
@@ -175,7 +176,9 @@ button { margin: 0; padding: 0; border: 0; background: none; cursor: pointer; te
 .column-role { font-size: var(--text-label); color: var(--ink-2); }
 .column-place { display: flex; min-inline-size: 0; margin-block-start: var(--space-2); }
 .column-place .control, .place-name { --flag-width: 30px; gap: var(--space-2); block-size: 40px; font-size: var(--text-strong); font-weight: 600; letter-spacing: -0.01em; }
-.place-name { display: inline-flex; align-items: center; min-inline-size: 0; max-inline-size: 100%; border-radius: var(--radius-control); }
+/* A place that is shown, not chosen, has the picker's box without its border, so all four flags start the same distance in. */
+.place-name { display: inline-flex; align-items: center; min-inline-size: 0; max-inline-size: 100%; padding-inline: var(--space-3); border: 1px solid transparent; border-radius: var(--radius-control); }
+@media (hover: hover) and (pointer: fine) { .place-name:hover { background: var(--wash); } }
 .place-name .place-words { min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .column-price { align-self: last baseline; margin-block-start: var(--space-3); line-height: 1.05; }
 .column-price .amount { font-size: 36px; font-weight: 600; letter-spacing: -0.025em; }
@@ -193,6 +196,10 @@ button { margin: 0; padding: 0; border: 0; background: none; cursor: pointer; te
 .note-actions:empty { display: none; }
 .column-note .text-action { color: var(--ink); }
 .note-problem { color: var(--ink); }
+/* With nothing to compare, the column is only an invitation: as wide as its control, with no price bar. */
+.band:has(.column-compared.is-empty) { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) minmax(0, 1fr); }
+.column-compared.is-empty .column-meter { visibility: hidden; }
+.column-compared.is-empty .price-missing-quiet { font-size: var(--text-label); white-space: normal; }
 .column-meter { position: relative; align-self: end; block-size: 6px; margin-block-start: var(--space-3); border-radius: 3px; background: var(--wash); overflow: hidden; }
 .column-meter-fill { position: absolute; inset-block: 0; inset-inline-start: 0; inset-inline-end: calc(100% - var(--meter-end, 0%)); border-radius: 3px; background: linear-gradient(90deg, var(--meter-colour-start) var(--meter-colour-from, 100%), var(--meter-colour-end)); }
 
@@ -219,8 +226,11 @@ button { margin: 0; padding: 0; border: 0; background: none; cursor: pointer; te
 .map-label.is-lit { outline: 2px solid var(--focus); outline-offset: 1px; }
 .map-name { position: absolute; inset-block-start: 0; inset-inline-start: 0; font-size: 11px; line-height: 1.2; color: var(--ink-2); white-space: nowrap; }
 .map-zoom { position: absolute; inset-block-end: var(--space-4); inset-inline-end: var(--page-margin); display: flex; flex-direction: column; gap: var(--space-2); }
+.map-zoom { align-items: flex-end; }
 .map-zoom .icon-button { background: var(--raised); box-shadow: var(--shadow-label); }
-.map-key { position: absolute; inset-block-end: var(--space-4); inset-inline-start: var(--page-margin); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-size: var(--text-small); color: var(--ink-2); pointer-events: none; }
+.map-world { block-size: 32px; padding-inline: var(--space-3); border-color: transparent; box-shadow: var(--shadow-label); font-size: var(--text-label); font-weight: 500; }
+/* The key keeps a backdrop of sea, so its words stay readable when land is zoomed in behind it. */
+.map-key { position: absolute; inset-block-end: var(--space-4); inset-inline-start: calc(var(--page-margin) - var(--space-2)); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-2); border-radius: var(--radius-control); background: color-mix(in oklab, var(--sea) 88%, transparent); font-size: var(--text-small); color: var(--ink-2); pointer-events: none; }
 .map-key .amount { color: var(--ink); font-weight: 500; }
 .key-band { inline-size: 96px; block-size: 6px; border-radius: 3px; box-shadow: inset 0 0 0 0.5px var(--flag-edge); }
 .key-no-price { display: inline-flex; align-items: center; gap: var(--space-1); margin-inline-start: var(--space-3); }
@@ -296,32 +306,43 @@ button { margin: 0; padding: 0; border: 0; background: none; cursor: pointer; te
 @media (max-width: 720px) {
   :root { --page-margin: var(--space-4); --column-gap: var(--space-3); }
   body { min-block-size: 0; overflow: hidden auto; }
+  :root { --control-height: 44px; }
   .bar {
-    grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "product share" "configuration currency";
+    grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "photo product share" "photo configuration currency";
     gap: var(--space-2) var(--space-2); min-block-size: 0; padding-block: max(var(--space-3), env(safe-area-inset-top)) var(--space-3);
   }
-  .bar-photo { display: none; }
+  .bar-photo { align-self: center; }
+  .control-product, .control-configuration { block-size: auto; min-block-size: var(--control-height); padding-block: var(--space-1); line-height: 1.2; white-space: normal; }
+  .control-product ui-select-value { white-space: normal; }
+  .specs-in-full { display: none; }
+  .specs-in-short { display: block; }
   .bar-cell > ui-select, .bar-cell > ui-dialog-trigger, .bar-cell .control { flex: 1; inline-size: 100%; }
   .bar-currency .control, .bar-share .control { justify-content: center; }
-  .band { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(12, auto); padding-block: var(--space-3) var(--space-4); }
+  .band, .band:has(.column-compared.is-empty) { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(12, auto); padding-block: var(--space-3) var(--space-4); }
   .column-cheapest, .column-most-expensive { margin-block-start: var(--space-4); padding-block-start: var(--space-3); border-block-start: 1px solid var(--rule); }
   .column-cheapest::before { display: none; }
   .column-most-expensive::before { inset-block-start: var(--space-3); }
   .column-place .flag-empty { display: none; }
   .price-missing-quiet { font-size: var(--text-label); }
   .column-place { margin-block-start: var(--space-1); }
-  .column-place .control, .place-name { --flag-width: 22px; --ui-icon-size: 14px; gap: var(--space-1); block-size: 36px; font-size: var(--text-body); }
-  .column-place .control { padding-inline: var(--space-2); }
+  .column-place .control, .place-name { --flag-width: 22px; --ui-icon-size: 14px; gap: var(--space-1); block-size: var(--control-height); padding-inline: var(--space-2); font-size: var(--text-body); }
+  /* Links in the answer are a line of text; an invisible margin makes each a 44 pixel target without spreading the words apart. */
+  .text-action::after { content: ""; position: absolute; inset: -13px -4px; }
+  .note-actions { row-gap: var(--space-6); }
+  /* Beside another link, "Use my location" is its icon alone, so both fit one line; it keeps its name for screen readers. */
+  .note-actions > :not(:only-child) .words-of-icon { display: none; }
+  .icon-button { inline-size: 44px; block-size: 44px; }
   .column-price { margin-block-start: var(--space-2); }
   .column-price .amount, .band[data-amount-length] .column-price .amount { font-size: 26px; }
   .band[data-amount-length="longer"] .column-price .amount, .band[data-amount-length="longest"] .column-price .amount, .column-price-range .amount { font-size: 18px !important; }
   .price-missing { font-size: var(--text-body); }
   .column-local { margin-block-start: 0; font-size: var(--text-label); }
-  .column-note { margin-block-start: 0; font-size: var(--text-small); }
+  .column-note { margin-block-start: 0; font-size: var(--text-label); }
   .column-meter { block-size: 4px; margin-block-start: var(--space-2); }
   .map { min-block-size: 220px; }
-  .map-zoom { display: none; }
-  .map-key { inset-block-end: max(var(--space-3), env(safe-area-inset-bottom)); }
+  .map-zoom { flex-direction: row; align-items: center; inset-block-end: calc(max(var(--space-3), env(safe-area-inset-bottom)) + 28px); }
+  .map-world { block-size: 44px; }
+  .map-key { inset-block-end: max(var(--space-2), env(safe-area-inset-bottom)); }
   .map-label { --flag-width: 20px; font-size: 11px; }
   .map-label::before { content: ""; position: absolute; inset: -6px -2px; }
   .key-band { inline-size: 64px; }

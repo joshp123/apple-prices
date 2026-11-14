@@ -82,7 +82,7 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
       <defs><pattern id="no-price-hatch" patternUnits="userSpaceOnUse" width="5" height="5"><rect class="no-price-ground" width="5" height="5"/><path class="no-price-stripe" d="M-1 1l2-2M0 5l5-5M4 6l2-2"/></pattern></defs>
       <g class="map-land"></g></svg>
     <svg class="map-leaders" aria-hidden="true"></svg><div class="map-labels"></div>
-    <div class="map-zoom"><button type="button" class="icon-button" data-action="zoom-map" data-by="2" aria-label="Zoom in">${icons.plus}</button><button type="button" class="icon-button" data-action="zoom-map" data-by="0.5" aria-label="Zoom out">${icons.minus}</button></div>
+    <div class="map-zoom"><button type="button" class="control map-world" data-action="show-map-area" data-area="world" hidden>World</button><button type="button" class="icon-button" data-action="zoom-map" data-by="2" aria-label="Zoom in">${icons.plus}</button><button type="button" class="icon-button" data-action="zoom-map" data-by="0.5" aria-label="Zoom out">${icons.minus}</button></div>
     <p class="map-key" aria-label="Map colours from the cheapest price to the most expensive"></p>`;
   const drawing = select<SVGSVGElement, unknown>(container.querySelector<SVGSVGElement>('.map-drawing')!);
   const land = drawing.select<SVGGElement>('.map-land');

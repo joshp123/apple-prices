@@ -21,6 +21,11 @@ const bar = element('#bar'), answer = element('#answer'), mapBox = element('#map
 
 let snapshot: PriceSnapshot, state: PageState, comparison: PriceComparison, priceMap: PriceMap;
 let mapArea = 'world';
+// "World" appears once the map shows anything else, and takes it back.
+function setMapArea(area: string): void {
+  mapArea = area;
+  mapBox.querySelector<HTMLElement>('.map-world')!.hidden = area === 'world';
+}
 // The place /api/whereami gives for whoever opened the page.
 let openerPlaceCode: string | null = null;
 const visitorChosePlaceInThisTab = 'visitor chose their place in this tab';
@@ -196,12 +201,11 @@ document.addEventListener('click', event => {
     case 'show-place': return openPlacePopUp(data.place!);
     case 'show-map-area':
       closePlacePopUp();
-      mapArea = data.area!;
+      setMapArea(data.area!);
       return priceMap.showArea(mapArea, true);
     case 'zoom-map':
       priceMap.zoomBy(Number(data.by));
-      mapArea = 'moved-by-hand';
-      return;
+      return setMapArea('moved-by-hand');
     case 'copy-share-link':
       return void navigator.clipboard.writeText(shareLink(view())).then(
         () => { element('.share-status').textContent = 'Link copied.'; },
@@ -257,7 +261,7 @@ try {
   answer.innerHTML = answerHtml;
   popUps.innerHTML = popUpsHtml;
   listenToControls();
-  priceMap = createPriceMap(mapBox, mapPlaces, placeCode => (placeCode ? openPlacePopUp(placeCode) : closePlacePopUp()), () => { mapArea = 'moved-by-hand'; });
+  priceMap = createPriceMap(mapBox, mapPlaces, placeCode => (placeCode ? openPlacePopUp(placeCode) : closePlacePopUp()), () => setMapArea('moved-by-hand'));
   drawEverything();
   priceMap.fitToContainer();
   priceMap.buildLabels(view());
