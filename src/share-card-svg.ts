@@ -113,92 +113,44 @@ function cardRows(comparison: PriceComparison): CardRow[] {
 
 const rolesWords = (roles: ComparisonRole[]) => roles.map((role, index) => (index ? roleWords[role].toLowerCase() : roleWords[role])).join(', ');
 
-// The card reads top to bottom: the product and its whole configuration across the card, then the photo, large, beside one row per
-// place. Every line is measured before it is placed. A row's first line is the role, the price and its local money, all on one baseline;
-// its second is the place's name and how it differs from me, on another. A US state's estimate gets a line of its own, and words that do
-// not fit beside the name run on below it.
-const titleStyle: TextStyle = { fontSize: 72, fontWeight: 700, letterSpacingEm: -0.03 };
+// The card reads top to bottom: the product and its whole configuration across the card, then the photo beside one row per place.
+// Every row has the same two lines at the same height: the role and the price; then the place's name, its local money and its
+// difference from me, each in a column of its own, so every detail stands where the eye expects it. When the columns need more
+// width the photo gives it up; legible prices come before a large photo. A US state's estimate is marked on its name and explained
+// once, below the rows.
+const titleStyle: TextStyle = { fontSize: 68, fontWeight: 700, letterSpacingEm: -0.03 };
 const softStyle: TextStyle = { fontSize: smallestFontSize, fontWeight: 400, letterSpacingEm: -0.015, colour: softInkColour };
-const amountStyle: TextStyle = { fontSize: 68, fontWeight: 700, letterSpacingEm: -0.035 };
-const nameStyle: TextStyle = { fontSize: 56, fontWeight: 600, letterSpacingEm: -0.02 };
+const amountStyle: TextStyle = { fontSize: 64, fontWeight: 700, letterSpacingEm: -0.035 };
+const nameStyle: TextStyle = { fontSize: 54, fontWeight: 600, letterSpacingEm: -0.02 };
 const unpricedStyle: TextStyle = { fontSize: smallestFontSize, fontWeight: 600, letterSpacingEm: -0.015 };
-const titleLineHeight = 80, specLineHeight = 56, gapBelowSpecs = 28, gapBesidePhoto = 48;
-const bodyBottom = footerBaseline - 62, flagHeight = 56, flagWidth = flagHeight * 1.5, flagGap = 24, gap = 48, localMoneyGap = 16;
-// Line heights for a row, roomy first; the tighter set is used only when the roomy one does not fit.
-type RowMetrics = { amountLine: number; nameLine: number; smallLine: number };
-const rowMetrics: RowMetrics[] = [{ amountLine: 66, nameLine: 58, smallLine: 52 }, { amountLine: 60, nameLine: 52, smallLine: 50 }];
-const largestPhotoTile = 600, smallestPhotoTile = 320, narrowestRows = 820;
+const titleLineHeight = 76, specLineHeight = 52, gapBelowSpecs = 24, gapBesidePhoto = 48, bodyBottom = footerBaseline - 58;
+const priceLine = 58, detailLine = 54, footnoteLine = 52, largestRowPadding = 18;
+const flagHeight = 52, flagWidth = flagHeight * 1.5, flagGap = 24, columnGap = 36;
+const largestPhotoTile = 600, smallestPhotoTile = 200;
+const estimateFootnote = '* Population-weighted average sales tax';
 
 const withSize = (style: TextStyle, fontSize: number): TextStyle => ({ ...style, fontSize });
 const fitted = (text: string, style: TextStyle, widthLimit: number) => withSize(style, Math.max(smallestFontSize, largestFontSizeThatFits(text, style, widthLimit)));
-
-// Text placed on a given baseline, so words of different sizes on one line sit on the same one.
-function textOnBaseline(text: string, x: number, baseline: number, style: TextStyle, anchor: TextAnchor = 'start'): string {
-  return textLine(text, x, baseline - (style.fontSize * interCapitalHeightEm), style.fontSize * interCapitalHeightEm, style, anchor);
-}
 const baselineOf = (lineTop: number, lineHeight: number, style: TextStyle) => lineTop + (lineHeight + style.fontSize * interCapitalHeightEm) / 2;
-
-// Lays the small print out from the right edge, joining whole parts ("(£1,999)", "$459 more") while they fit,
-// and breaking a part only when it alone is too wide for its line.
-function rightAlignedLines(parts: string[], firstLineWidth: number, otherLinesWidth: number): string[] {
-  const lines: string[] = [], widthOfLine = (index: number) => (index === 0 ? firstLineWidth : otherLinesWidth);
-  for (const part of parts) {
-    const last = lines.length - 1;
-    if (last >= 0 && textWidth(`${lines[last]}, ${part}`, softStyle) <= widthOfLine(last)) { lines[last] += `, ${part}`; continue; }
-    if (last >= 0) lines[last] += ',';
-    const width = widthOfLine(lines.length);
-    lines.push(...(textWidth(part, softStyle) <= width ? [part] : wrappedLines(part, softStyle, width)));
-  }
-  return lines;
+function textOnBaseline(text: string, x: number, baseline: number, style: TextStyle, anchor: TextAnchor = 'start'): string {
+  return textLine(text, x, baseline - style.fontSize * interCapitalHeightEm, style.fontSize * interCapitalHeightEm, style, anchor);
 }
 
-type RowLayout = { textLeft: number; textRight: number; metrics: RowMetrics; localMoneyBesidePrice: boolean };
-// localMoneyFits says whether the local money fitted beside the price, so a card puts it there in every row or in none.
-type MeasuredRow = { height: number; localMoneyFits: boolean; priceFits: boolean; draw: (top: number) => string };
+// One row's words, before any are placed.
+type RowWords = { row: CardRow; role: string; name: string; price: string; localMoney: string; difference: string; unpriced: string; isEstimate: boolean };
 
-function measuredRow(comparison: PriceComparison, pictures: ShareCardPictures, row: CardRow, { textLeft, textRight, metrics, localMoneyBesidePrice }: RowLayout): MeasuredRow {
-  const { amountLine, nameLine, smallLine } = metrics;
-  const nameLeft = textLeft + flagWidth + flagGap, width = textRight - nameLeft;
-  const role = rolesWords(row.roles), name = placeName(comparison.snapshot, row.placeCode);
-  const nameAt = fitted(name, nameStyle, width * 0.6), roleWidth = textWidth(role, softStyle), nameWidth = textWidth(name, nameAt);
-  const firstBaseline = (top: number) => baselineOf(top, amountLine, amountStyle), secondBaseline = (top: number) => baselineOf(top + amountLine, nameLine, nameAt);
-  const flagAndNames = (top: number) => flag(pictures, row.placeCode, textLeft, firstBaseline(top) - flagHeight + 4, flagHeight)
-    + textOnBaseline(role, nameLeft, firstBaseline(top), softStyle) + textOnBaseline(name, nameLeft, secondBaseline(top), nameAt);
+function rowWords(comparison: PriceComparison, row: CardRow): RowWords {
   const words = priceWords(comparison, row.placePrice, { shortenMillions: true });
-  if (!words) {
-    // No price: the reason stands where the price would.
-    const reasonLines = wrappedLines(unpricedWordsOnShareCard(row.placePrice), unpricedStyle, width - Math.max(roleWidth, nameWidth) - gap);
-    const height = Math.max(amountLine + nameLine, amountLine + (reasonLines.length - 1) * smallLine + 8);
-    return { height, localMoneyFits: true, priceFits: true, draw: top => flagAndNames(top)
-      + reasonLines.map((line, index) => textOnBaseline(line, textRight, firstBaseline(top) + index * smallLine, unpricedStyle, 'end')).join('') };
-  }
-  const amountAt = fitted(words.inDisplayCurrency, amountStyle, width - roleWidth - gap);
-  const amountWidth = textWidth(words.inDisplayCurrency, amountAt);
-  const localMoney = words.inLocalCurrency && `(${words.inLocalCurrency})`;
-  const localMoneyFits = !localMoney || roleWidth + gap + amountWidth + localMoneyGap + textWidth(localMoney, softStyle) <= width;
-  const localBesidePrice = !!localMoney && localMoneyBesidePrice && localMoneyFits;
-  const difference = row.placePrice.kind === 'priced' && !row.roles.includes('visitor') ? differenceFromVisitorWords(comparison, row.placePrice.price, null) : '';
-  const smallPrint = [localBesidePrice ? '' : localMoney, difference].filter(Boolean);
-  const besideName = width - nameWidth - gap;
-  // When not even the first part fits beside the name, the small print starts on the line below it.
-  const startsBesideName = !smallPrint.length || textWidth(smallPrint[0], softStyle) <= besideName;
-  const smallPrintLines = rightAlignedLines(smallPrint, startsBesideName ? besideName : width, width);
   const isEstimate = salesTaxLabel(row.placePrice) === 'Population-weighted average';
-  const linesBelowName = Math.max(0, smallPrintLines.length - (startsBesideName ? 1 : 0)) + (isEstimate ? 1 : 0);
-  const height = amountLine + nameLine + linesBelowName * smallLine;
-  const priceFits = roleWidth + gap + amountWidth <= width;
-  return { height, localMoneyFits, priceFits, draw: top => {
-    const first = firstBaseline(top), second = secondBaseline(top);
-    const amountRight = localBesidePrice ? textRight - textWidth(localMoney, softStyle) - localMoneyGap : textRight;
-    const smallPrintBaselines = smallPrintLines.map((_, index) => (startsBesideName ? second + index * smallLine : second + (index + 1) * smallLine));
-    const lastBaseline = smallPrintBaselines.length ? Math.max(second, smallPrintBaselines[smallPrintBaselines.length - 1]) : second;
-    return flagAndNames(top)
-      + textOnBaseline(words.inDisplayCurrency, amountRight, first, amountAt, 'end')
-      + (localBesidePrice ? textOnBaseline(localMoney, textRight, first, softStyle, 'end') : '')
-      + smallPrintLines.map((line, index) => textOnBaseline(line, textRight, smallPrintBaselines[index], softStyle, 'end')).join('')
-      + (isEstimate ? textOnBaseline('population-weighted average', textRight, lastBaseline + smallLine, softStyle, 'end') : '');
-  } };
+  return {
+    row, role: rolesWords(row.roles), name: placeName(comparison.snapshot, row.placeCode) + (isEstimate ? '*' : ''),
+    price: words?.inDisplayCurrency ?? '', localMoney: words?.inLocalCurrency ? `(${words.inLocalCurrency})` : '',
+    difference: row.placePrice.kind === 'priced' && !row.roles.includes('visitor') ? differenceFromVisitorWords(comparison, row.placePrice.price, null) : '',
+    unpriced: words ? '' : unpricedWordsOnShareCard(row.placePrice), isEstimate,
+  };
 }
+
+const widest = (texts: string[], style: TextStyle) => Math.max(0, ...texts.filter(Boolean).map(text => textWidth(text, style)));
 
 export function shareCardSvg(comparison: PriceComparison, pictures: ShareCardPictures): string {
   const { product, configuration } = comparison;
@@ -206,30 +158,45 @@ export function shareCardSvg(comparison: PriceComparison, pictures: ShareCardPic
   const title = fitted(product.productName, titleStyle, fullWidth);
   const specLines = wrappedLines(specLine(product, configuration), softStyle, fullWidth);
   const bodyTop = topOfContent + titleLineHeight + specLines.length * specLineHeight + gapBelowSpecs, bodyHeight = bodyBottom - bodyTop;
-  // The photo is a square as tall as the space below the specs allows; it gives up width, 40 pixels at a time, only when the rows need it.
-  const largestTile = Math.min(largestPhotoTile, bodyHeight, fullWidth - gapBesidePhoto - narrowestRows);
-  const layoutFor = (tileSize: number, metrics: RowMetrics, localMoneyBesidePrice: boolean) => {
-    const textLeft = sideMargin + tileSize + gapBesidePhoto;
-    const rows = cardRows(comparison).map(row => measuredRow(comparison, pictures, row, { textLeft, textRight, metrics, localMoneyBesidePrice }));
-    const spare = bodyHeight - rows.reduce((sum, row) => sum + row.height, 0);
-    return { tileSize, textLeft, rows, spare, fits: spare >= 0 && rows.every(row => row.priceFits) && (!localMoneyBesidePrice || rows.every(row => row.localMoneyFits)) };
-  };
-  const tileSizes = Array.from({ length: Math.floor((largestTile - smallestPhotoTile) / 40) + 1 }, (_, step) => largestTile - step * 40);
-  const candidates = tileSizes.flatMap(size => rowMetrics.flatMap(metrics => [layoutFor(size, metrics, true), layoutFor(size, metrics, false)]));
-  const { tileSize, textLeft, rows, spare } = candidates.find(candidate => candidate.fits) ?? candidates[candidates.length - 1];
-  const widthLimit = textRight - textLeft;
-  // The rows share the photo's height: spare height goes between them, up to a limit, so a short card's rows do not huddle at the top.
-  const gapBetweenRows = rows.length > 1 ? Math.max(0, Math.min(40, spare / (rows.length - 1))) : 0;
+
+  const rows = cardRows(comparison).map(row => rowWords(comparison, row));
+  const hasEstimate = rows.some(row => row.isEstimate);
+  // The name column takes what the local money and difference columns leave; names shrink to the smallest size before the photo does.
+  const differenceColumn = widest(rows.map(row => row.difference), softStyle), localColumn = widest(rows.map(row => row.localMoney), softStyle);
+  const detailColumns = (localColumn ? localColumn + columnGap : 0) + (differenceColumn ? differenceColumn + columnGap : 0);
+  const narrowestName = widest(rows.map(row => row.name), withSize(nameStyle, smallestFontSize));
+  const narrowestPrice = Math.max(...rows.map(row => textWidth(row.role, softStyle) + columnGap + (row.price ? textWidth(row.price, withSize(amountStyle, smallestFontSize)) : textWidth(row.unpriced, unpricedStyle) / 2)));
+  const rowsNeed = flagWidth + flagGap + Math.max(narrowestName + detailColumns, narrowestPrice);
+  const tileSize = Math.max(smallestPhotoTile, Math.min(largestPhotoTile, bodyHeight, fullWidth - gapBesidePhoto - rowsNeed));
+  const textLeft = sideMargin + tileSize + gapBesidePhoto, nameLeft = textLeft + flagWidth + flagGap, rowWidth = textRight - nameLeft;
+  const nameAt = withSize(nameStyle, Math.min(...rows.map(row => fitted(row.name, nameStyle, rowWidth - detailColumns).fontSize)));
+  const localRight = textRight - (differenceColumn ? differenceColumn + columnGap : 0);
+
+  // Every row is the same height, with the same air above and below; the spare height is shared out as that air.
+  const footnoteHeight = hasEstimate ? footnoteLine + 8 : 0;
+  const rowHeight = priceLine + detailLine;
+  const rowPadding = Math.max(0, Math.min(largestRowPadding, (bodyHeight - footnoteHeight - rows.length * rowHeight) / (rows.length * 2)));
   const photoBoxSize = tileSize * 5 / 6, photoLeft = sideMargin + (tileSize - photoBoxSize) / 2, photoTop = bodyTop + (tileSize - photoBoxSize) / 2;
 
   let svg = textLine(product.productName, sideMargin, topOfContent, titleLineHeight, title);
   specLines.forEach((line, index) => { svg += textLine(line, sideMargin, topOfContent + titleLineHeight + index * specLineHeight, specLineHeight, softStyle); });
-  let top = bodyTop;
-  rows.forEach(({ height, draw }, index) => {
-    if (index) svg += `<rect x="${textLeft}" y="${(top - gapBetweenRows / 2 - 1).toFixed(1)}" width="${widthLimit}" height="2" fill="${inkColour}" fill-opacity="0.1"/>`;
-    svg += draw(top);
-    top += height + gapBetweenRows;
+  rows.forEach((row, index) => {
+    const top = bodyTop + index * (rowHeight + rowPadding * 2) + rowPadding;
+    if (index) svg += `<rect x="${textLeft}" y="${(top - rowPadding - 1).toFixed(1)}" width="${textRight - textLeft}" height="2" fill="${inkColour}" fill-opacity="0.1"/>`;
+    const first = baselineOf(top, priceLine, amountStyle), second = baselineOf(top + priceLine, detailLine, nameAt);
+    svg += flag(pictures, row.row.placeCode, textLeft, first - flagHeight + 6, flagHeight);
+    svg += textOnBaseline(row.role, nameLeft, first, softStyle) + textOnBaseline(row.name, nameLeft, second, nameAt);
+    if (row.price) {
+      svg += textOnBaseline(row.price, textRight, first, fitted(row.price, amountStyle, rowWidth - textWidth(row.role, softStyle) - columnGap), 'end');
+      if (row.localMoney) svg += textOnBaseline(row.localMoney, localRight, second, softStyle, 'end');
+      if (row.difference) svg += textOnBaseline(row.difference, textRight, second, softStyle, 'end');
+    } else {
+      // No price: the reason stands where the price and its details would, on the row's own two lines.
+      wrappedLines(row.unpriced, unpricedStyle, rowWidth - Math.max(textWidth(row.role, softStyle), textWidth(row.name, nameAt)) - columnGap).slice(0, 2)
+        .forEach((line, lineIndex) => { svg += textOnBaseline(line, textRight, lineIndex ? second : first, unpricedStyle, 'end'); });
+    }
   });
+  if (hasEstimate) svg += textOnBaseline(estimateFootnote, textLeft, baselineOf(bodyTop + rows.length * (rowHeight + rowPadding * 2) + 8, footnoteLine, softStyle), softStyle);
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${shareCardWidth}" height="${shareCardHeight}" viewBox="0 0 ${shareCardWidth} ${shareCardHeight}">
 <rect width="${shareCardWidth}" height="${shareCardHeight}" fill="${paperColour}"/>
