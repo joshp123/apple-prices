@@ -44,7 +44,18 @@ const shareCardFonts = SHARE_CARD_FONTS_BASE64.map(bytesFromBase64);
 let resvgOnceReady: Promise<void>;
 async function renderPng(svg: string): Promise<Uint8Array> {
   await (resvgOnceReady ??= initWasm(resvgModule));
-  return new Resvg(svg, { font: { fontBuffers: shareCardFonts, defaultFontFamily: 'Inter', loadSystemFonts: false } }).render().asPng();
+  // Both objects hold WebAssembly memory that only free() gives back.
+  const drawing = new Resvg(svg, { font: { fontBuffers: shareCardFonts, defaultFontFamily: 'Inter', loadSystemFonts: false } });
+  try {
+    const picture = drawing.render();
+    try {
+      return picture.asPng().slice();
+    } finally {
+      picture.free();
+    }
+  } finally {
+    drawing.free();
+  }
 }
 
 async function flagAsDataUrl(flagCode: string): Promise<string> {

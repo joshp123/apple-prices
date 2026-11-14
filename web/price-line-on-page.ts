@@ -1,13 +1,11 @@
 // The price line under the map: the named places above the line, and on a wide screen every other place's flag hanging under it at its price.
 import { priceColour } from '../src/price-colour.ts';
 import { priceWords } from '../src/price-comparison.ts';
-import { priceLineMarks, priceLineScale, priceLineTicks, roleWordingOnPage, rowsForHangingFlags, type PriceLineMark } from '../src/price-line.ts';
+import { priceLineMarks, priceLineScale, priceLineTicks, rowsForHangingFlags, type PriceLineMark } from '../src/price-line.ts';
 import { escapeHtml, flagHtml } from './html.ts';
 import { isPhoneWidth, placesShownOnPriceLine, type PageView } from './page-view.ts';
 
-const hangingFlagWidth = 30, hangingFlagHeight = 20, gapBetweenHangingFlags = 3;
-// Under this distance between rows there is no room for a name beside each flag.
-const smallestRowHeightWithNames = 15;
+const hangingFlagWidth = 30, hangingFlagHeight = 20, gapBetweenHangingFlags = 3, rowHeight = hangingFlagHeight + gapBetweenHangingFlags;
 
 function namedPlaceHtml(view: PageView, mark: PriceLineMark): string {
   const amount = priceWords(view.comparison, mark.placePrice, { shortenMillions: true })!.inDisplayCurrency;
@@ -35,19 +33,33 @@ export function drawPriceLine(container: HTMLElement, view: PageView): void {
     </div>`;
   const plot = container.querySelector<HTMLElement>('.price-line-plot')!;
   const lineWidth = plot.clientWidth;
-  const marks = priceLineMarks(comparison, placesShown, roleWordingOnPage).sort((a, b) => a.lowestPriceInUsDollars - b.lowestPriceInUsDollars || a.placeName.localeCompare(b.placeName));
+  const marks = priceLineMarks(comparison, placesShown, view.roleWording).sort((a, b) => a.lowestPriceInUsDollars - b.lowestPriceInUsDollars || a.placeName.localeCompare(b.placeName));
   const named = marks.filter(mark => mark.roles.length), others = marks.filter(mark => !mark.roles.length);
 
-  // Flags hang at their exact price, a row lower where they would touch. Places that cost the same make a tall pile,
-  // so when the rows need more height than there is, they move closer and each flag covers part of the one above.
+  // Flags hang at their exact price, a row lower where they would touch. Where more places share a price than there are rows,
+  // the rest are a count in the last row, over the prices they span, that opens their names and prices.
   const hangingFlagsBox = plot.querySelector<HTMLElement>('.hanging-flags')!;
   const scale = priceLineScale(marks, lineWidth, hangingFlagWidth / 2 + 2);
   const spans = others.map(mark => {
     const lowest = scale.positionOf(mark.lowestPriceInUsDollars), highest = scale.positionOf(mark.highestPriceInUsDollars), middle = (lowest + highest) / 2;
     return { left: Math.min(lowest, middle - hangingFlagWidth / 2), right: Math.max(highest, middle + hangingFlagWidth / 2) };
   });
-  const rows = rowsForHangingFlags(spans, gapBetweenHangingFlags), rowCount = Math.max(0, ...rows) + 1;
-  const rowHeight = Math.min(hangingFlagHeight + gapBetweenHangingFlags, (hangingFlagsBox.clientHeight - hangingFlagHeight) / Math.max(1, rowCount - 1));
+  const rowsThereIsRoomFor = Math.max(1, Math.floor((hangingFlagsBox.clientHeight + gapBetweenHangingFlags) / rowHeight));
+  const rows = rowsForHangingFlags(spans, gapBetweenHangingFlags);
+  const hasTooManyRows = Math.max(0, ...rows) >= rowsThereIsRoomFor, rowOfCounts = rowsThereIsRoomFor - 1;
+  const isCounted = (index: number) => hasTooManyRows && rows[index] >= rowOfCounts;
+  type Count = { left: number; right: number; placeCodes: string[] };
+  const counts: Count[] = [];
+  others.forEach((mark, index) => {
+    if (!isCounted(index)) return;
+    const last = counts[counts.length - 1];
+    if (last && spans[index].left < last.right + gapBetweenHangingFlags) { last.right = Math.max(last.right, spans[index].right); last.placeCodes.push(mark.placeCode); }
+    else counts.push({ ...spans[index], placeCodes: [mark.placeCode] });
+  });
+  // One place on its own in the last row hangs there as its flag.
+  const hangsAsFlag = (index: number) => !isCounted(index) || counts.some(count => count.placeCodes.length === 1 && count.placeCodes[0] === others[index].placeCode);
+  const countsOfSeveral = counts.filter(count => count.placeCodes.length > 1);
+  const rowOf = (index: number) => Math.min(rows[index], rowOfCounts);
   const middleOf = (mark: PriceLineMark) => (scale.positionOf(mark.lowestPriceInUsDollars) + scale.positionOf(mark.highestPriceInUsDollars)) / 2;
 
   // Named places stand in one line above, each as near its price as its neighbours allow.
@@ -107,21 +119,22 @@ export function drawPriceLine(container: HTMLElement, view: PageView): void {
   }
 
   hangingFlagsBox.innerHTML = others.map((mark, index) => {
+    if (!hangsAsFlag(index)) return '';
     const amount = priceWords(comparison, mark.placePrice, { shortenMillions: true })!.inDisplayCurrency, label = `${mark.placeName} ${amount}`;
     const lowest = scale.positionOf(mark.lowestPriceInUsDollars), highest = scale.positionOf(mark.highestPriceInUsDollars), middle = (lowest + highest) / 2;
     const span = highest - lowest > 2 ? `<span class="span-of-prices" style="left:${lowest - middle}px;width:${highest - lowest}px"></span>` : '';
-    return `<button type="button" class="hanging-flag" style="transform:translate(${middle}px,${rows[index] * rowHeight}px);--row:${rows[index]}" tabindex="${index ? -1 : 0}" data-action="show-place" data-place="${mark.placeCode}" data-from="price-line"
+    return `<button type="button" class="hanging-flag" style="transform:translate(${middle}px,${rowOf(index) * rowHeight}px)" tabindex="-1" data-action="show-place" data-place="${mark.placeCode}" data-from="price-line" data-index="${index}"
       data-focus="hanging-${mark.placeCode}" data-lights-up="${mark.placeCode}" data-tip="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${span}${flagHtml(mark.placeCode)}<span class="name-beside-flag" style="left:${spans[index].right - middle + hangingFlagWidth / 2 + 6}px" hidden>${escapeHtml(label)}</span></button>`;
-  }).join('');
+  }).join('') + countsOfSeveral.map(count => `<button type="button" class="count-of-places" style="transform:translate(${count.left}px,${rowOfCounts * rowHeight}px);width:${count.right - count.left}px" tabindex="-1"
+      data-action="list-places-at-one-price" data-places="${count.placeCodes.join(' ')}" data-focus="count-${count.placeCodes[0]}" aria-label="${count.placeCodes.length} more places at about this price. Show them.">+${count.placeCodes.length}</button>`).join('');
+  hangingFlagsBox.querySelector<HTMLElement>('button')?.setAttribute('tabindex', '0');
   // A flag with nothing to its right in its row has its name and price written beside it.
-  const hangingFlags = [...hangingFlagsBox.children] as HTMLElement[];
-  hangingFlags.forEach((element, index) => {
-    const name = element.querySelector<HTMLElement>('.name-beside-flag')!;
+  const countSpans = countsOfSeveral.map(count => ({ left: count.left, right: count.right, row: rowOfCounts }));
+  const shownSpans = [...spans.map((span, index) => ({ ...span, row: rowOf(index) })).filter((_, index) => hangsAsFlag(index)), ...countSpans];
+  for (const element of hangingFlagsBox.querySelectorAll<HTMLElement>('.hanging-flag')) {
+    const index = Number(element.dataset.index), name = element.querySelector<HTMLElement>('.name-beside-flag')!;
     name.hidden = false;
     const nameRight = spans[index].right + 6 + name.offsetWidth;
-    // Rows that sit closer than a flag is high overlap, so a name must clear the flags in the rows next to its own as well.
-    const rowsApartThatTouch = Math.ceil(hangingFlagHeight / rowHeight) - 1;
-    name.hidden = (rowHeight < smallestRowHeightWithNames && rows[index] > 0) || nameRight > lineWidth
-      || spans.some((other, otherIndex) => otherIndex !== index && Math.abs(rows[otherIndex] - rows[index]) <= rowsApartThatTouch && other.left < nameRight + 6 && other.right > spans[index].right);
-  });
+    name.hidden = nameRight > lineWidth || shownSpans.some(other => other.row === rowOf(index) && other.left < nameRight + 6 && other.left >= spans[index].right);
+  }
 }

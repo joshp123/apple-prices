@@ -7,7 +7,7 @@ import { priceColour } from '../src/price-colour.ts';
 import {
   canCompareWith, differenceFromVisitorWords, placePriceOf, priceComparison, priceWords, salesTaxSentence, shareSentence, unpricedSentence,
 } from '../src/price-comparison.ts';
-import { priceLineMarks, roleWordingOnPage } from '../src/price-line.ts';
+import { priceLineMarks, type PriceLineMark } from '../src/price-line.ts';
 import { shareCardPath, shareLinkPath } from '../src/share-link.ts';
 import { specLine } from '../src/spec-words.ts';
 import { countryName } from '../src/take-home-prices.ts';
@@ -91,15 +91,26 @@ function placeListHtml(view: PageView, purpose: 'visitor-place' | 'compared-plac
     <div class="menu-list" role="listbox" aria-label="${title}">${rows}</div><p class="menu-note menu-nothing-found" hidden>No place with that name.</p></div>`;
 }
 
+function rankedPlaceRowHtml({ comparison }: PageView, mark: PriceLineMark): string {
+  const cheapestPriceInUsDollars = comparison.prices[0].takeHomePriceInUsDollars;
+  return `<button type="button" class="menu-item menu-place" data-action="show-place" data-place="${mark.placeCode}" data-from="price-line" data-focus="ranked-${mark.placeCode}">${flagHtml(mark.placeCode)}
+    <span class="menu-name">${escapeHtml(mark.placeName)}${mark.roleWords ? `<span class="menu-role">${escapeHtml(mark.roleWords)}</span>` : ''}</span>
+    <span class="menu-amount"><span class="swatch" style="background:${priceColour((mark.lowestPriceInUsDollars + mark.highestPriceInUsDollars) / 2, cheapestPriceInUsDollars)}"></span>${priceWords(comparison, mark.placePrice, { shortenMillions: true })!.inDisplayCurrency}</span></button>`;
+}
+
+const marksCheapestFirst = (view: PageView) => priceLineMarks(view.comparison, placesShownOnPriceLine(view.state), view.roleWording)
+  .sort((a, b) => a.lowestPriceInUsDollars - b.lowestPriceInUsDollars || a.placeName.localeCompare(b.placeName));
+
 function allPricesHtml(view: PageView): string {
-  const { comparison } = view, cheapestPriceInUsDollars = comparison.prices[0].takeHomePriceInUsDollars;
-  const placesShown = placesShownOnPriceLine(view.state);
-  const rows = priceLineMarks(comparison, placesShown, roleWordingOnPage).sort((a, b) => a.lowestPriceInUsDollars - b.lowestPriceInUsDollars || a.placeName.localeCompare(b.placeName)).map(mark => `
-    <button type="button" class="menu-item menu-place" data-action="show-place" data-place="${mark.placeCode}" data-from="price-line" data-focus="all-prices-${mark.placeCode}">${flagHtml(mark.placeCode)}
-      <span class="menu-name">${escapeHtml(mark.placeName)}${mark.roleWords ? `<span class="menu-role">${escapeHtml(mark.roleWords)}</span>` : ''}</span>
-      <span class="menu-amount"><span class="swatch" style="background:${priceColour((mark.lowestPriceInUsDollars + mark.highestPriceInUsDollars) / 2, cheapestPriceInUsDollars)}"></span>${priceWords(comparison, mark.placePrice, { shortenMillions: true })!.inDisplayCurrency}</span></button>`).join('');
-  const title = placesShown === 'countries' ? 'All prices, cheapest first' : 'US states and Canadian provinces, cheapest first';
-  return `<div class="panel menu menu-of-places menu-of-all-prices" role="dialog" aria-label="${title}" data-opened-by="open-all-prices" data-aligned-to="end" data-opens="upwards">${panelHeadHtml(title)}<div class="menu-list">${rows}</div></div>`;
+  const title = placesShownOnPriceLine(view.state) === 'countries' ? 'All prices, cheapest first' : 'US states and Canadian provinces, cheapest first';
+  return `<div class="panel menu menu-of-places menu-of-all-prices" role="dialog" aria-label="${title}" data-opened-by="open-all-prices" data-aligned-to="end" data-opens="upwards">${panelHeadHtml(title)}<div class="menu-list">${marksCheapestFirst(view).map(mark => rankedPlaceRowHtml(view, mark)).join('')}</div></div>`;
+}
+
+// The places behind one count on the price line.
+function placesAtOnePriceHtml(view: PageView): string {
+  const places = marksCheapestFirst(view).filter(mark => view.state.placeCodesAtOnePrice.includes(mark.placeCode));
+  const title = `${places.length} places at about the same price`;
+  return `<div class="panel menu menu-of-places menu-of-all-prices" role="dialog" aria-label="${title}" data-opened-by="count-${view.state.placeCodesAtOnePrice[0]}" data-opens="upwards">${panelHeadHtml(title)}<p class="menu-title">${title}</p><div class="menu-list">${places.map(mark => rankedPlaceRowHtml(view, mark)).join('')}</div></div>`;
 }
 
 const dayWords = (unixSeconds: bigint) => new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Number(unixSeconds) * 1000));
@@ -116,15 +127,15 @@ function aboutPricesHtml({ snapshot }: PageView): string {
     </div></div>`;
 }
 
-export function placePopUpHtml({ snapshot, state, comparison }: PageView, placeCode: string): string {
+export function placePopUpHtml({ snapshot, state, comparison, openerPlaceCode, visitorInComparisons }: PageView, placeCode: string): string {
   const price = placePriceOf(snapshot, comparison.product, comparison.prices, placeCode), name = placeName(snapshot, placeCode), words = priceWords(comparison, price);
   const isVisitorPlace = placeCode === state.visitorPlaceCode, isComparedPlace = placeCode === state.comparedPlaceCode;
   const inLocalMoney = words?.inLocalCurrency ? ` <span class="pop-up-price-in-local-money">(${words.inLocalCurrency})</span>` : '';
   let body: string;
   if (price.kind === 'priced') {
-    const method = salesTaxSentence(snapshot, price.price), difference = differenceFromVisitorWords(comparison, price.price);
+    const method = salesTaxSentence(snapshot, price.price), difference = differenceFromVisitorWords(comparison, price.price, visitorInComparisons);
     body = `<p class="pop-up-price"><span class="amount">${words!.inDisplayCurrency}</span>${inLocalMoney}</p>
-      ${difference ? `<p class="pop-up-line">${difference}</p>` : ''}${isVisitorPlace ? '<p class="pop-up-line">This is where you are.</p>' : ''}${method ? `<p class="pop-up-line">${escapeHtml(method)}</p>` : ''}`;
+      ${difference ? `<p class="pop-up-line">${difference}</p>` : ''}${isVisitorPlace ? `<p class="pop-up-line">${openerPlaceCode ? 'This is the place the link shows.' : 'This is where you are.'}</p>` : ''}${method ? `<p class="pop-up-line">${escapeHtml(method)}</p>` : ''}`;
   } else if (price.kind === 'priced-by-state-or-province') {
     body = `<p class="pop-up-price pop-up-price-range">${words!.inDisplayCurrency}${inLocalMoney}</p>
       <p class="pop-up-line">It depends on the ${stateOrProvinceWords(placeCode).one}.${placeCode === 'US' ? ' Sales tax is the population-weighted average for each state.' : ''}</p>`;
@@ -133,7 +144,7 @@ export function placePopUpHtml({ snapshot, state, comparison }: PageView, placeC
   }
   const canCompare = canCompareWith(snapshot, comparison.product, comparison.prices, state.visitorPlaceCode, placeCode);
   const actions = [
-    canCompare && !isComparedPlace ? `<button type="button" class="button button-primary" data-action="compare-with" data-place="${placeCode}">Compare with ${state.visitorPlaceCode ? 'you' : 'this place'}</button>` : '',
+    canCompare && !isComparedPlace ? `<button type="button" class="button button-primary" data-action="compare-with" data-place="${placeCode}">Compare with ${state.visitorPlaceCode ? visitorInComparisons : 'this place'}</button>` : '',
     isComparedPlace ? '<button type="button" class="button" data-action="compare-with" data-place="">Stop comparing</button>' : '',
     price.kind === 'priced-by-state-or-province' ? `<button type="button" class="button" data-action="show-map-area" data-area="${placeCode === 'US' ? 'united-states' : 'canada'}">Show the ${placeCode === 'US' ? 'states' : 'provinces'}</button>` : '',
     !isVisitorPlace ? `<button type="button" class="button button-quiet" data-action="choose-visitor-place" data-place="${placeCode}">I’m here</button>` : '',
@@ -183,6 +194,7 @@ export function openPanelHtml(view: PageView, countryCodesOnMap: string[]): stri
     case 'currency': return currencyListHtml(view);
     case 'visitor-place': case 'compared-place': return placeListHtml(view, view.state.openPanel, countryCodesOnMap);
     case 'all-prices': return allPricesHtml(view);
+    case 'places-at-one-price': return placesAtOnePriceHtml(view);
     case 'about-prices': return aboutPricesHtml(view);
     case 'share': return shareDialogHtml(view);
     default: return '';

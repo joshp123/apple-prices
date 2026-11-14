@@ -152,16 +152,17 @@ export function rankAmongPrices(comparison: PriceComparison, price: TakeHomePric
   return comparison.prices.findIndex(candidate => isSamePrice(candidate, price)) + 1;
 }
 
-// "$434 less than you" on the page; the share card speaks for the visitor: "than me".
-export function differenceFromVisitorWords(comparison: PriceComparison, price: TakeHomePrice, visitorWord: 'you' | 'me' = 'you'): string {
+// "$434 less than you" on the page, "$434 less than the Netherlands" when the page shows someone else's shared place,
+// and just "$434 less" on the share card, where the column beside it is marked "Me".
+export function differenceFromVisitorWords(comparison: PriceComparison, price: TakeHomePrice, thanWhom: string | null = 'you'): string {
   const visitor = comparison.columns.find(column => column.role === 'visitor')?.placePrice;
   if (visitor?.kind !== 'priced' || visitor.price.territoryCode === price.territoryCode) return '';
-  if (isSamePrice(price, visitor.price)) return `Same as ${visitorWord}`;
+  if (isSamePrice(price, visitor.price)) return thanWhom ? `Same as ${thanWhom}` : 'Same price';
   const { snapshot, selection: { displayCurrencyCode } } = comparison;
   const amount = amountInCurrency(snapshot, price, displayCurrencyCode), visitorAmount = amountInCurrency(snapshot, visitor.price, displayCurrencyCode);
   const bothShownWhole = amount >= 100 && visitorAmount >= 100;
   const difference = bothShownWhole ? Math.round(amount) - Math.round(visitorAmount) : amount - visitorAmount;
-  return `${formatMoney(Math.abs(difference), displayCurrencyCode, { shortenMillions: true, alwaysWhole: bothShownWhole })} ${difference < 0 ? 'less' : 'more'} than ${visitorWord}`;
+  return `${formatMoney(Math.abs(difference), displayCurrencyCode, { shortenMillions: true, alwaysWhole: bothShownWhole })} ${difference < 0 ? 'less' : 'more'}${thanWhom ? ` than ${thanWhom}` : ''}`;
 }
 
 export function shareSentence(comparison: PriceComparison): string {

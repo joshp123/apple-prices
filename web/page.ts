@@ -3,7 +3,7 @@ import { fromBinary } from '@bufbuild/protobuf';
 import { PriceSnapshotSchema, type PriceSnapshot } from '../src/generated/apple_prices/v1/price_snapshot_pb.js';
 import { countryCodeOf, isKnownPlaceCode, placeCodeForCountryCode, placeNameAfterIn } from '../src/places.ts';
 import { canCompareWith, priceComparison, type PriceComparison } from '../src/price-comparison.ts';
-import type { PlacesOnPriceLine } from '../src/price-line.ts';
+import { roleWordingOnPage, type PlacesOnPriceLine } from '../src/price-line.ts';
 import { selectionFromShareLink, shareLinkPath } from '../src/share-link.ts';
 import { specLine, type SpecName } from '../src/spec-words.ts';
 import { answerHtml } from './answer.ts';
@@ -21,11 +21,24 @@ const element = <E extends HTMLElement>(selector: string) => document.querySelec
 const bar = element('#bar'), answer = element('#answer'), mapBox = element('#map'), priceLineBox = element('#price-line'), panelsBox = element('#panels'), tip = element('#tip');
 
 let snapshot: PriceSnapshot, state: PageState, comparison: PriceComparison, priceMap: PriceMap;
-const view = (): PageView => ({ snapshot, state, comparison });
+// The place /api/whereami gives for whoever opened the page.
+let openerPlaceCode: string | null = null;
+const visitorChosePlaceInThisTab = 'visitor chose their place in this tab';
+
+function view(): PageView {
+  const shownPlace = state.visitorPlaceCode;
+  const isSomeoneElsesPlace = !!openerPlaceCode && !!shownPlace && countryCodeOf(shownPlace) !== openerPlaceCode && !sessionStorage.getItem(visitorChosePlaceInThisTab);
+  return {
+    snapshot, state, comparison,
+    openerPlaceCode: isSomeoneElsesPlace ? openerPlaceCode : null,
+    roleWording: isSomeoneElsesPlace ? { ...roleWordingOnPage, visitor: 'Shared place' } : roleWordingOnPage,
+    visitorInComparisons: isSomeoneElsesPlace ? placeNameAfterIn(snapshot, shownPlace) : 'you',
+  };
+}
 
 // ---------- the address ----------
 
-const openPanels: OpenPanel[] = ['product', 'configuration', 'currency', 'visitor-place', 'compared-place', 'all-prices', 'about-prices', 'share'];
+const openPanels: OpenPanel[] = ['product', 'configuration', 'currency', 'visitor-place', 'compared-place', 'all-prices', 'places-at-one-price', 'about-prices', 'share'];
 
 function stateFromAddress(): PageState {
   const address = new URL(location.href), parameter = (name: string) => address.searchParams.get(name);
@@ -41,6 +54,7 @@ function stateFromAddress(): PageState {
     specChangeNote: '',
     shareTextAsTyped: null,
     locationProblem: '',
+    placeCodesAtOnePrice: (parameter('at') ?? '').split(' ').filter(code => isKnownPlaceCode(snapshot, code)),
   };
 }
 
@@ -53,6 +67,7 @@ function addressOfState(): string {
   if (state.popUpPlaceCode) set('from', state.popUpOpenedFrom, 'map');
   set('panel', state.openPanel);
   set('list', state.placeListCountryCode);
+  if (state.openPanel === 'places-at-one-price') set('at', state.placeCodesAtOnePrice.join(' '));
   return address.pathname + address.search;
 }
 
@@ -66,6 +81,13 @@ function announce(message: string): void {
 
 function setTitle(): void {
   document.title = `${comparison.product.productName}: what it costs in each country`;
+}
+
+// The answer never scrolls inside itself: when its rows would not all show, it is drawn tighter, and tighter again.
+function drawAnswer(): void {
+  answer.innerHTML = answerHtml(view());
+  answer.classList.remove('is-tighter', 'is-tightest');
+  for (const tightness of ['is-tighter', 'is-tightest']) if (!isPhoneWidth() && answer.scrollHeight > answer.clientHeight) answer.classList.add(tightness);
 }
 
 function drawPanels(): void {
@@ -109,8 +131,8 @@ function placePopUp(): void {
 function drawEverything(): void {
   comparison = priceComparison(snapshot, state);
   bar.innerHTML = productBarHtml(view());
-  answer.innerHTML = answerHtml(view());
   drawPriceLine(priceLineBox, view());
+  drawAnswer();
   priceMap.fitToContainer();
   priceMap.drawAreaShortcuts(state.mapArea);
   priceMap.colourPlaces(view());
@@ -141,7 +163,7 @@ function change(changes: Partial<PageState>, options: ChangeOptions = {}): void 
   }
   if (pricesChanged || before.openPanel !== state.openPanel || before.specChangeNote !== state.specChangeNote || before.locationProblem !== state.locationProblem) {
     bar.innerHTML = productBarHtml(view());
-    answer.innerHTML = answerHtml(view());
+    drawAnswer();
   }
   if (pricesChanged || before.popUpPlaceCode !== state.popUpPlaceCode) priceMap.colourPlaces(view());
   if (pricesChanged) priceMap.buildLabels(view());
@@ -171,11 +193,9 @@ function whatToFocusInOpenPanel(): HTMLElement | undefined {
 }
 
 const panelOpener = (stateWhenOpen: PageState) =>
-  (stateWhenOpen.openPanel === 'visitor-place' && stateWhenOpen.placeListCountryCode && document.querySelector('[data-focus="open-visitor-place-in-country"]') ? 'open-visitor-place-in-country' : `open-${stateWhenOpen.openPanel}`);
+  (stateWhenOpen.openPanel === 'places-at-one-price' ? `count-${stateWhenOpen.placeCodesAtOnePrice[0]}` : stateWhenOpen.openPanel === 'visitor-place' && stateWhenOpen.placeListCountryCode && document.querySelector('[data-focus="open-visitor-place-in-country"]') ? 'open-visitor-place-in-country' : `open-${stateWhenOpen.openPanel}`);
 
 // ---------- where the visitor is ----------
-
-const visitorChosePlaceInThisTab = 'visitor chose their place in this tab';
 
 function chooseVisitorPlace(placeCode: string): void {
   sessionStorage.setItem(visitorChosePlaceInThisTab, 'yes');
@@ -183,21 +203,28 @@ function chooseVisitorPlace(placeCode: string): void {
   announce(`You are in ${placeNameAfterIn(snapshot, placeCode)}`);
 }
 
-// The country the visitor's connection comes from. A shared link carries the sharer's place: someone opening it elsewhere
-// sees their own price, with the sharer's place as the comparison.
-async function findVisitorCountry(): Promise<void> {
-  if (sessionStorage.getItem(visitorChosePlaceInThisTab)) return;
+// The country the opener's connection comes from. It is where they are only when the address names no place: a shared link
+// opens exactly as shared, and its place is then called by name with one way to the opener's own price.
+async function findOpenerCountry(): Promise<void> {
   const response = await fetch('/api/whereami');
   if (!response.ok) return;
   const { country } = await response.json() as { country: string | null };
-  const visitorPlaceCode = country && placeCodeForCountryCode(country);
-  if (!visitorPlaceCode || !isKnownPlaceCode(snapshot, visitorPlaceCode)) return;
-  const placeInLink = state.visitorPlaceCode;
-  if (placeInLink && countryCodeOf(placeInLink) === visitorPlaceCode) return;
-  Object.assign(state, { visitorPlaceCode, comparedPlaceCode: state.comparedPlaceCode ?? placeInLink });
-  if (state.comparedPlaceCode && !canCompareWith(snapshot, comparison.product, comparison.prices, visitorPlaceCode, state.comparedPlaceCode)) state.comparedPlaceCode = null;
-  history.replaceState(null, '', addressOfState());
+  const placeCode = country && placeCodeForCountryCode(country);
+  if (!placeCode || !isKnownPlaceCode(snapshot, placeCode)) return;
+  openerPlaceCode = placeCode;
+  if (!state.visitorPlaceCode) {
+    state.visitorPlaceCode = placeCode;
+    history.replaceState(null, '', addressOfState());
+  }
   drawEverything();
+}
+
+// The opener's own price, beside the shared place's unless the link already compares with somewhere.
+function seePriceWhereOpened(): void {
+  const sharedPlaceCode = state.visitorPlaceCode;
+  sessionStorage.setItem(visitorChosePlaceInThisTab, 'yes');
+  change({ visitorPlaceCode: openerPlaceCode, comparedPlaceCode: state.comparedPlaceCode ?? sharedPlaceCode }, { focusAfterwards: 'open-visitor-place' });
+  announce(`You are in ${placeNameAfterIn(snapshot, openerPlaceCode!)}`);
 }
 
 // The visitor's state or province, from the browser's own idea of where they are. Only the place's code is kept; the position goes nowhere.
@@ -245,6 +272,8 @@ document.addEventListener('click', event => {
     case 'choose-visitor-place': return chooseVisitorPlace(data.place!);
     case 'list-every-place': return change({ placeListCountryCode: null });
     case 'use-my-location': return useMyLocation();
+    case 'see-price-where-opened': return seePriceWhereOpened();
+    case 'list-places-at-one-price': return change({ openPanel: 'places-at-one-price', placeCodesAtOnePrice: data.places!.split(' '), popUpPlaceCode: null });
     case 'compare-with':
       change({ comparedPlaceCode: data.place || null, openPanel: null, placeListCountryCode: null, popUpPlaceCode: null }, { focusAfterwards: data.place ? 'row-compared' : 'open-compared-place' });
       return announce(state.comparedPlaceCode ? `Comparing with ${placeNameAfterIn(snapshot, state.comparedPlaceCode)}` : 'No longer comparing');
@@ -332,6 +361,7 @@ addEventListener('resize', () => {
   redrawForNewSize = requestAnimationFrame(() => {
     if (priceMap.fitToContainer()) { priceMap.buildLabels(view()); priceMap.showArea(mapAreas[state.mapArea] ? state.mapArea : 'world', false); }
     drawPriceLine(priceLineBox, view());
+    drawAnswer();
     drawPanels();
   });
 });
@@ -354,7 +384,7 @@ try {
   priceMap.showArea(state.mapArea, false);
   history.replaceState(null, '', addressOfState());
   document.documentElement.dataset.page = 'ready';
-  findVisitorCountry().catch(problem => console.error('Could not find the visitor’s country', problem));
+  findOpenerCountry().catch(problem => console.error('Could not find the opener’s country', problem));
 } catch (problem) {
   console.error(problem);
   document.documentElement.dataset.page = 'failed';

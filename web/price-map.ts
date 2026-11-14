@@ -7,7 +7,6 @@ import { feature } from 'topojson-client';
 import { countriesTaxedByStateOrProvince, countryCodeOf, isStateOrProvince, placeName } from '../src/places.ts';
 import { priceColour } from '../src/price-colour.ts';
 import { hasPrice, placePriceOf, priceWords } from '../src/price-comparison.ts';
-import { roleWordingOnPage } from '../src/price-line.ts';
 import { countryName } from '../src/take-home-prices.ts';
 import { escapeHtml, flagHtml, icons } from './html.ts';
 import { isPhoneWidth, type PageView } from './page-view.ts';
@@ -78,7 +77,9 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
     areas.set(countryCode, places.filter(place => countryCodeOf(place.properties.placeCode) === countryCode).reduce((sum, place) => sum + areas.get(place.properties.placeCode)!, 0));
   }
 
-  container.innerHTML = `<svg class="map-drawing" role="application" tabindex="0" aria-label="Map of prices. Arrow keys move it; plus and minus zoom."><g class="map-land"></g></svg>
+  container.innerHTML = `<svg class="map-drawing" role="application" tabindex="0" aria-label="Map of prices. Arrow keys move it; plus and minus zoom.">
+      <defs><pattern id="no-price-hatch" patternUnits="userSpaceOnUse" width="5" height="5"><rect class="no-price-ground" width="5" height="5"/><path class="no-price-stripe" d="M-1 1l2-2M0 5l5-5M4 6l2-2"/></pattern></defs>
+      <g class="map-land"></g></svg>
     <svg class="map-leaders" aria-hidden="true"></svg><div class="map-labels"></div>
     <div class="map-areas segments" role="radiogroup" aria-label="Map area"></div>
     <div class="map-zoom"><button type="button" class="icon-button" data-action="zoom-map" data-by="2" aria-label="Zoom in">${icons.plus}</button><button type="button" class="icon-button" data-action="zoom-map" data-by="0.5" aria-label="Zoom out">${icons.minus}</button></div>
@@ -92,6 +93,8 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
   const zoomBehaviour: ZoomBehavior<SVGSVGElement, unknown> = zoom<SVGSVGElement, unknown>().scaleExtent([1, deepestZoom]).on('zoom', event => {
     transform = event.transform;
     land.attr('transform', transform.toString()).style('--zoom', String(transform.k));
+    // The hatch on places with no price keeps its size on screen however far the map is zoomed.
+    drawing.select('#no-price-hatch').attr('patternTransform', `scale(${1 / transform.k})`);
     placeLabels();
     if (event.sourceEvent) whenMovedByHand();
   });
@@ -158,7 +161,7 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
     land.selectAll<SVGPathElement, unknown>('path.is-visitor-place, path.is-shown-in-pop-up').raise();
   }
 
-  function buildLabels({ snapshot, comparison }: PageView): void {
+  function buildLabels({ snapshot, comparison, roleWording }: PageView): void {
     namedPlaceCodes = comparison.columns.map(column => column.placeCode);
     const roleOf = new Map(comparison.columns.map(column => [column.placeCode, column.role]));
     const placePrice = (placeCode: string) => placePriceOf(snapshot, comparison.product, comparison.prices, placeCode);
@@ -168,7 +171,7 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
     const priceLabelHtml = (code: string): string => {
       const name = placeName(snapshot, code), amount = priceWords(comparison, placePrice(code), { shortenMillions: true })!.inDisplayCurrency, role = roleOf.get(code);
       return `<button type="button" class="map-label ${role === 'visitor' ? 'map-label-of-visitor' : ''}" data-action="show-place" data-place="${code}" data-from="map" data-focus="label-${code}" data-lights-up="${code}" tabindex="-1"
-        aria-label="${escapeHtml(`${role ? `${roleWordingOnPage[role]}: ` : ''}${name}, ${amount}`)}">${flagHtml(code)}<span class="map-label-words"><span>${escapeHtml(name)}</span><span class="amount">${amount}</span></span></button>`;
+        aria-label="${escapeHtml(`${role ? `${roleWording[role]}: ` : ''}${name}, ${amount}`)}">${flagHtml(code)}<span class="map-label-words"><span>${escapeHtml(name)}</span><span class="amount">${amount}</span></span></button>`;
     };
     const codesWithPriceLabels = [...pricedCodes, ...countriesOfStatesOrProvinces];
     labelsBox.innerHTML = codesWithPriceLabels.map(priceLabelHtml).join('') + codesWithNoPrice.map(code => `<span class="map-name">${escapeHtml(placeName(snapshot, code))}</span>`).join('');
