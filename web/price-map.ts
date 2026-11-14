@@ -38,7 +38,9 @@ const labelPointOverrides: Record<string, LongitudeAndLatitude> = {
 };
 
 type PlaceOutline = { properties: { placeCode: string }; geometry: GeoJSON.Geometry };
-type MapLabel = { placeCode: string; element: HTMLElement; point: LongitudeAndLatitude; area: number; showsPrice: boolean; isStateOrProvince: boolean; isCountryOfStatesOrProvinces: boolean; width: number; height: number };
+type MapLabel = { placeCode: string; element: HTMLElement; point: LongitudeAndLatitude; area: number; showsPrice: boolean; isStateOrProvince: boolean; isCountryOfStatesOrProvinces: boolean; width: number; height: number;
+  // Where the label and its line sit relative to its place's point, from the last placement: the label follows its place while the map moves.
+  placement?: { labelOffset: [number, number]; leaderEndOffset: [number, number] | null } };
 type Box = { left: number; top: number; right: number; bottom: number };
 type Line = { fromX: number; fromY: number; toX: number; toY: number };
 
@@ -97,9 +99,9 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
     land.attr('transform', transform.toString()).style('--zoom', String(transform.k));
     // The hatch on places with no price keeps its size on screen however far the map is zoomed.
     drawing.select('#no-price-hatch').attr('patternTransform', `scale(${1 / transform.k})`);
-    placeLabels();
+    moveLabelsWithMap();
     if (event.sourceEvent) whenMovedByHand();
-  });
+  }).on('end', placeLabels);
   drawing.call(zoomBehaviour).on('dblclick.zoom', null);
   // Labels cover much of the map, so the wheel over one zooms the map beneath it.
   labelsBox.addEventListener('wheel', event => {
@@ -233,6 +235,18 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
     placeLabels();
   }
 
+  // While the map moves, each label keeps its place relative to its point; which labels show and where is decided again once it stops.
+  function moveLabelsWithMap(): void {
+    let leadersDrawing = '';
+    for (const label of labels) {
+      if (label.element.hidden || !label.placement) continue;
+      const [x, y] = transform.apply(projection(label.point)!), { labelOffset, leaderEndOffset } = label.placement;
+      label.element.style.transform = `translate(${Math.round(x + labelOffset[0])}px,${Math.round(y + labelOffset[1])}px)`;
+      if (leaderEndOffset) leadersDrawing += `<path d="M${x} ${y}L${x + leaderEndOffset[0]} ${y + leaderEndOffset[1]}"/><circle cx="${x}" cy="${y}" r="2.2"/>`;
+    }
+    leadersBox.innerHTML = leadersDrawing;
+  }
+
   // The four named places first, then the largest places. A label that does not fit on its place stands beside it on a short line;
   // no line crosses another line or a label.
   function placeLabels(): void {
@@ -273,6 +287,7 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
         if (isBesideItsPlace && (leaders.some(other => linesCross(leader, other)) || takenBoxes.some(taken => lineTouchesBox(leader, taken)))) continue;
         takenBoxes.push(box);
         label.element.style.transform = `translate(${Math.round(box.left)}px,${Math.round(box.top)}px)`;
+        label.placement = { labelOffset: [box.left - x, box.top - y], leaderEndOffset: isBesideItsPlace ? [leader.toX - x, leader.toY - y] : null };
         if (isBesideItsPlace) {
           leaders.push(leader);
           leadersDrawing += `<path d="M${leader.fromX} ${leader.fromY}L${leader.toX} ${leader.toY}"/><circle cx="${x}" cy="${y}" r="2.2"/>`;
