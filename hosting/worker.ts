@@ -108,6 +108,9 @@ export default {
       const country = (request as Request & { cf?: { country?: string } }).cf?.country ?? request.headers.get('CF-IPCountry') ?? null;
       return Response.json({ country }, { headers: { 'Cache-Control': 'no-store' } });
     }
+    if (url.pathname === '/data/price-snapshot.binpb') {
+      return serveWebAsset({ ...webAssets[PRICE_SNAPSHOT_PATH], cacheControl: 'public, max-age=300' });
+    }
     const asset = webAssets[url.pathname];
     if (asset) return serveWebAsset(asset);
 
