@@ -22,10 +22,8 @@ const bar = element('#bar'), answer = element('#answer'), mapBox = element('#map
 let snapshot: PriceSnapshot, state: PageState, comparison: PriceComparison, priceMap: PriceMap;
 // On a phone the map opens on the places the answer names, which a whole world would show too small; elsewhere on the world.
 let mapArea = isPhoneWidth() ? 'named-places' : 'world';
-// "World" appears once the map shows anything else, and takes it back.
 function setMapArea(area: string): void {
   mapArea = area;
-  mapBox.querySelector<HTMLElement>('.map-world')!.hidden = area === 'world';
 }
 // The place /api/whereami gives for whoever opened the page.
 let openerPlaceCode: string | null = null;
@@ -252,7 +250,9 @@ function fitMapToWhatIsUncovered(): void {
 }
 
 function showMapArea(isAnimated: boolean): void {
-  if (mapArea === 'named-places') priceMap.showPlaces(comparison.columns.map(column => column.placeCode), isAnimated);
+  // The visitor's place first: the map centres on it when the others do not fit across.
+  const roles = ['visitor', 'compared', 'cheapest', 'most-expensive'];
+  if (mapArea === 'named-places') priceMap.showPlaces([...comparison.columns].sort((a, b) => roles.indexOf(a.role) - roles.indexOf(b.role)).map(column => column.placeCode), isAnimated);
   else priceMap.showArea(mapAreas[mapArea] ? mapArea : 'world', isAnimated);
 }
 const coverWatcher = new ResizeObserver(() => {

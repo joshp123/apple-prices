@@ -7,7 +7,7 @@ import { feature } from 'topojson-client';
 import { countriesTaxedByStateOrProvince, countryCodeOf, isStateOrProvince, placeName } from '../src/places.ts';
 import { priceColour } from '../src/price-colour.ts';
 import { formatMoney } from '../src/money.ts';
-import { amountInCurrency, hasPrice, placePriceOf, priceWords } from '../src/price-comparison.ts';
+import { amountInCurrency, hasPrice, placePriceOf, priceWords, salesTaxLabel } from '../src/price-comparison.ts';
 import { countryName } from '../src/take-home-prices.ts';
 import { escapeHtml, flagHtml, icons } from './html.ts';
 import { isPhoneWidth, usEstimateNote, type PageView } from './page-view.ts';
@@ -82,7 +82,7 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
       <defs><pattern id="no-price-hatch" patternUnits="userSpaceOnUse" width="5" height="5"><rect class="no-price-ground" width="5" height="5"/><path class="no-price-stripe" d="M-1 1l2-2M0 5l5-5M4 6l2-2"/></pattern></defs>
       <g class="map-land"></g></svg>
     <svg class="map-leaders" aria-hidden="true"></svg><div class="map-labels"></div>
-    <div class="map-zoom"><button type="button" class="control map-world" data-action="show-map-area" data-area="world" hidden>World</button><button type="button" class="icon-button" data-action="zoom-map" data-by="2" aria-label="Zoom in">${icons.plus}</button><button type="button" class="icon-button" data-action="zoom-map" data-by="0.5" aria-label="Zoom out">${icons.minus}</button></div>
+    <div class="map-zoom"><button type="button" class="map-control" data-action="zoom-map" data-by="2" aria-label="Zoom in">${icons.plus}</button><button type="button" class="map-control" data-action="zoom-map" data-by="0.5" aria-label="Zoom out">${icons.minus}</button><button type="button" class="map-control" data-action="show-map-area" data-area="world" aria-label="Show the whole world">${icons.globe}</button></div>
     <div class="map-key"></div>`;
   const drawing = select<SVGSVGElement, unknown>(container.querySelector<SVGSVGElement>('.map-drawing')!);
   const land = drawing.select<SVGGElement>('.map-land');
@@ -152,20 +152,20 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
     return zoomIdentity.translate(size.width / 2 - k * (left + right) / 2, (size.height + marginAbove - marginBelow) / 2 - k * (top + bottom) / 2).scale(k);
   }
 
-  // The view that frames these places, with room round them for their labels, but never further out than the whole world.
-  function transformThatFrames(placeCodes: string[]): ZoomTransform {
-    const points = placeCodes.map(code => labelPoints.get(code) ?? labelPoints.get(countryCodeOf(code))).filter(point => !!point).map(point => projection(point!)!);
-    const world = transformThatShows('world');
-    if (points.length < 2) return world;
-    const [left, right] = [Math.min(...points.map(([x]) => x)), Math.max(...points.map(([x]) => x))];
-    const [top, bottom] = [Math.min(...points.map(([, y]) => y)), Math.max(...points.map(([, y]) => y))];
-    const roomAcross = 72, roomDown = 40, visibleTop = covered.top + roomDown, visibleBottom = size.height - covered.bottom - roomDown;
-    const k = Math.max(world.k, Math.min(6, (size.width - 2 * roomAcross) / Math.max(1, right - left), (visibleBottom - visibleTop) / Math.max(1, bottom - top)));
-    return zoomIdentity.translate(size.width / 2 - k * (left + right) / 2, (visibleTop + visibleBottom) / 2 - k * (top + bottom) / 2).scale(k);
+  // On a tall, narrow map the whole world is a thin strip in a sea of nothing, so the land is drawn to fill the height the cards leave,
+  // from the north of Europe to the tip of South America, centred on these places when they fit across and on the first when not.
+  // The rest is a drag away; a named place out of view is still named in the answer.
+  function transformThatFillsWithLand(placeCodes: string[]): ZoomTransform {
+    const [, landTop] = projection([0, 74])!, [, landBottom] = projection([0, -56])!;
+    const k = Math.max(1, (size.height - covered.top - covered.bottom) / (landBottom - landTop));
+    const xs = placeCodes.map(code => labelPoints.get(code) ?? labelPoints.get(countryCodeOf(code))).filter(point => !!point).map(point => projection(point!)![0]);
+    const roomAcross = 72, fitAcross = xs.length && (Math.max(...xs) - Math.min(...xs)) * k <= size.width - 2 * roomAcross;
+    const middle = !xs.length ? size.width / 2 : fitAcross ? (Math.min(...xs) + Math.max(...xs)) / 2 : xs[0];
+    return zoomIdentity.translate(size.width / 2 - k * middle, covered.top - k * landTop).scale(k);
   }
 
   function showPlaces(placeCodes: string[], isAnimated: boolean): void {
-    const target = transformThatFrames(placeCodes);
+    const target = transformThatFillsWithLand(placeCodes);
     if (isAnimated && !matchMedia('(prefers-reduced-motion: reduce)').matches) drawing.transition().duration(480).call(zoomBehaviour.transform, target);
     else drawing.call(zoomBehaviour.transform, target);
   }
@@ -197,10 +197,17 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
     const cheapest = comparison.prices[0], dearest = comparison.prices[comparison.prices.length - 1];
     const stops = Array.from({ length: 9 }, (_, step) => priceColour(cheapest.takeHomePriceInUsDollars + (dearest.takeHomePriceInUsDollars - cheapest.takeHomePriceInUsDollars) * step / 8, cheapest.takeHomePriceInUsDollars));
     const amount = (price: typeof cheapest) => formatMoney(amountInCurrency(comparison.snapshot, price, displayCurrencyCode), displayCurrencyCode, { shortenMillions: true });
-    container.querySelector('.map-key')!.innerHTML = `<span class="amount">${amount(cheapest)}</span><span class="key-band" style="background:linear-gradient(90deg,${stops.join(',')})"></span><span class="amount">${amount(dearest)}</span>`
-      + `<span class="key-no-price"><span class="swatch-no-price"></span>No price from Apple</span>`
-      + (comparison.prices.some(price => price.salesTaxRegion && price.additionalSalesTaxPercent && price.territoryCode.startsWith('US-')) ? `<span class="key-estimate">* ${usEstimateNote}</span>` : '')
-      + '<ui-popover-trigger for="tax-details"><button type="button" class="text-action key-about">About these prices</button></ui-popover-trigger>';
+    container.querySelector('.map-key')!.innerHTML = `<span class="key-line"><span class="amount">${amount(cheapest)}</span><span class="key-band" style="background:linear-gradient(90deg,${stops.join(',')})"></span><span class="amount">${amount(dearest)}</span>`
+      + '<span class="key-no-price"><span class="swatch-no-price"></span>No price from Apple</span>'
+      + `<ui-popover-trigger for="tax-details"><button type="button" class="key-info" aria-label="About these prices">${icons.info}</button></ui-popover-trigger></span>`
+      + `<span class="key-estimate" hidden>* ${usEstimateNote}</span>`;
+    showEstimateNoteWhenNeeded();
+  }
+
+  // The note on US states' asterisks shows only while an asterisk does, on a label or in the answer; it is always in the prices' details.
+  function showEstimateNoteWhenNeeded(): void {
+    const isMarkShown = [...document.querySelectorAll<HTMLElement>('.estimate-mark')].some(mark => mark.offsetParent);
+    container.querySelector<HTMLElement>('.key-estimate')!.hidden = !isMarkShown;
   }
 
   function buildLabels({ snapshot, comparison, roleWording }: PageView): void {
@@ -212,8 +219,9 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
     const codesWithNoPrice = [...placeCodesOnMap].filter(code => /^[A-Z]{2}$/.test(code) && !comparison.priceByPlaceCode.has(code) && !countriesTaxedByStateOrProvince.includes(code) && countryName(code) !== code);
     const priceLabelHtml = (code: string): string => {
       const name = placeName(snapshot, code), amount = priceWords(comparison, placePrice(code), { shortenMillions: true })!.inDisplayCurrency, role = roleOf.get(code);
+      const estimate = salesTaxLabel(placePrice(code)) === 'Population-weighted average' ? '<span class="estimate-mark">*</span>' : '';
       return `<button type="button" class="map-label ${role === 'visitor' ? 'map-label-of-visitor' : ''}" data-action="show-place" data-place="${code}" data-focus="label-${code}" data-lights-up="${code}" tabindex="-1"
-        aria-label="${escapeHtml(`${role ? `${roleWording[role]}: ` : ''}${name}, ${amount}`)}">${flagHtml(code)}<span class="map-label-words"><span>${escapeHtml(name)}</span><span class="amount">${amount}</span></span></button>`;
+        aria-label="${escapeHtml(`${role ? `${roleWording[role]}: ` : ''}${name}, ${amount}`)}">${flagHtml(code)}<span class="map-label-words"><span>${escapeHtml(name)}</span><span class="amount">${amount}${estimate}</span></span></button>`;
     };
     const codesWithPriceLabels = [...pricedCodes, ...countriesOfStatesOrProvinces];
     labelsBox.innerHTML = codesWithPriceLabels.map(priceLabelHtml).join('') + codesWithNoPrice.map(code => `<span class="map-name">${escapeHtml(placeName(snapshot, code))}</span>`).join('');
@@ -275,6 +283,7 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
     }
     for (const label of labels) label.element.hidden = !shown.has(label);
     leadersBox.innerHTML = leadersDrawing;
+    showEstimateNoteWhenNeeded();
   }
 
   return {

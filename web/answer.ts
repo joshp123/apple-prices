@@ -115,7 +115,8 @@ function taxDetailsHtml({ snapshot, comparison }: PageView): string {
   const source = (name: string, url: string) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(name)}</a>`;
   const visitor = comparison.columns.find(column => column.role === 'visitor')?.placePrice;
   const visitorSentence = visitor?.kind === 'priced' ? salesTaxSentence(snapshot, visitor.price) : '';
-  return `${visitorSentence ? `<p class="tax-details-lead">${escapeHtml(visitorSentence)}</p>` : ''}
+  const hasUsEstimates = comparison.prices.some(price => salesTaxLabel({ kind: 'priced', price }) === 'Population-weighted average');
+  return `${visitorSentence ? `<p class="tax-details-lead">${escapeHtml(visitorSentence)}</p>` : ''}${hasUsEstimates ? `<p class="tax-details-lead">* ${usEstimateNote}</p>` : ''}
     <p>Every price is Apple’s own, from its online store in each place, and is what you pay to take the product home.</p>
     <p>In most countries Apple’s price already includes tax. In the United States Apple adds sales tax at checkout, which differs by city and county, so each state’s price uses its population-weighted average sales tax (${source(usRegion.sourceName, usRegion.sourceUrl)}, rates from ${escapeHtml(usRegion.ratesEffectiveDate)}). In Canada each province’s and territory’s price adds its sales taxes (${source(canadianRegion.sourceName, canadianRegion.sourceUrl)}).</p>
     <p>Apple’s prices were read on ${dayWords(snapshot.fetchedAtUnixSeconds)}. Other currencies use exchange rates from ${source(rates.sourceName, rates.sourceUrl)}, ${dayWords(rates.publishedAtUnixSeconds)}.</p>`;

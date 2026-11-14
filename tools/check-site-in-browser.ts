@@ -35,6 +35,12 @@ async function zoomAtPlace(page: Page, placeCode: string, steps: number): Promis
 async function openPlace(page: Page, placeCode: string, isRetry = false): Promise<void> {
   const label = page.locator(`.map-label[data-place="${placeCode}"]`);
   if (await label.isVisible()) return label.click();
+  // A phone opens on the visitor's part of the world; a place elsewhere is found from the whole world, as a visitor would.
+  if (!isRetry && await page.evaluate(() => innerWidth <= 720)) {
+    await page.getByRole('button', { name: 'Show the whole world' }).click();
+    await page.waitForTimeout(700);
+    if (await label.isVisible()) return label.click();
+  }
   const outlines = ({ US: ['US-TX', 'US-KS', 'US-NE', 'US-SD', 'US-MT'], CA: ['CA-SK', 'CA-MB', 'CA-QC', 'CA-NT'] } as Record<string, string[]>)[placeCode] ?? [placeCode];
   for (const outline of outlines) {
     const box = (await page.locator(`path[data-place="${outline}"]`).boundingBox())!;
@@ -80,7 +86,7 @@ const pageStates: [name: string, address: string, countryOpenedIn?: string, acti
   ['17-currency-list', '/?me=NL', undefined, page => page.getByRole('combobox', { name: 'Prices in' }).click()],
   ['18-currency-euro', '/?me=NL&in=EUR'],
   ['19-currency-dong-longest-amounts', `${topMacBookPro}?me=VN&in=VND&vs=KR`],
-  ['20-map-world', '/?me=NL'],
+  ['20-map-world', '/?me=NL', undefined, page => page.getByRole('button', { name: 'Show the whole world' }).click()],
   ['21-map-europe', '/?me=NL', undefined, page => zoomAtPlace(page, 'NL', 3)],
   ['22-map-united-states', '/?me=NL', undefined, page => showStatesOf(page, 'US')],
   ['23-map-canada', '/?me=NL', undefined, page => showStatesOf(page, 'CA')],
@@ -374,7 +380,7 @@ async function journeyByKeyboard(): Promise<void> {
   await page.keyboard.press('+');
   await page.keyboard.press('ArrowRight');
   check('plus and arrow keys zoom and move the map', await page.locator('.map-land').getAttribute('transform') !== landBefore);
-  check('the map key shows the cheapest and dearest price and says US states are averages', /^\$[\d,]+\$[\d,]+NopricefromApple\*USstates:population-weightedaveragesalestaxAbouttheseprices$/.test((await page.locator('.map-key').innerText()).replace(/\s/g, '')), await page.locator('.map-key').innerText());
+  check('the map key shows the cheapest and dearest price and the way to how prices are worked out', /^\$[\d,]+\$[\d,]+NopricefromApple/.test((await page.locator('.map-key').innerText()).replace(/\s/g, '')) && await page.locator('.map-key').getByRole('button', { name: 'About these prices' }).isVisible(), await page.locator('.map-key').innerText());
   await context.close();
 }
 
@@ -453,7 +459,7 @@ async function journeysOnAPhone(): Promise<void> {
   await page.getByRole('option', { name: /^Japan/ }).click();
   await settled(page);
   check('on a phone the place list searches and compares', page.url().includes('vs=JP'), page.url());
-  await page.locator('.map-label[data-place="JP"]').click();
+  await page.locator('.column-cheapest .place-name').click();
   await settled(page);
   check('on a phone the map pop-up opens as a sheet', await page.locator('.pop-up-of-place').getAttribute('data-presentation') === 'sheet');
   await page.screenshot({ path: `${photographFolder}/phone-light-50-pop-up-sheet.png` });

@@ -226,17 +226,22 @@ body { display: block; position: relative; }
 .map-label-of-visitor { background: var(--ink); color: var(--paper); }
 .map-label.is-lit { outline: 2px solid var(--focus); outline-offset: 1px; }
 .map-name { position: absolute; inset-block-start: 0; inset-inline-start: 0; font-size: 11px; line-height: 1.2; color: var(--ink-2); white-space: nowrap; }
-.map-zoom { position: absolute; inset-block-end: calc(var(--covered-bottom, 0px) + var(--space-3)); inset-inline-end: var(--float-gap); display: flex; flex-direction: column; gap: var(--space-2); }
-.map-zoom { align-items: flex-end; }
-.map-zoom .icon-button { background: var(--raised); box-shadow: var(--shadow-label); }
-.map-world { block-size: 32px; padding-inline: var(--space-3); border-color: transparent; box-shadow: var(--shadow-label); font-size: var(--text-label); font-weight: 500; }
-/* The key keeps a backdrop of sea, so its words stay readable when land is zoomed in behind it. */
-.map-key { position: absolute; inset-block-end: calc(var(--covered-bottom, 0px) + var(--space-3)); inset-inline-start: var(--float-gap); max-inline-size: calc(100% - 2 * var(--float-gap) - 140px); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-2); border-radius: var(--radius-control); background: color-mix(in oklab, var(--sea) 88%, transparent); font-size: var(--text-small); color: var(--ink-2); pointer-events: none; }
+/* Zoom in, zoom out and the whole world: one small card at the map's lower right. */
+.map-zoom { position: absolute; inset-block-end: calc(var(--covered-bottom, 0px) + var(--space-2)); inset-inline-end: var(--float-gap); display: flex; flex-direction: column; background: var(--float); -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4); border-radius: var(--radius-control); box-shadow: var(--shadow-float); }
+.map-control { --ui-icon-size: 14px; position: relative; display: grid; place-items: center; inline-size: 36px; block-size: 36px; color: var(--ink); }
+.map-control + .map-control { border-block-start: 1px solid var(--rule); }
+.map-control .icon { inline-size: 14px; block-size: 14px; }
+.map-control::before, .key-info::before { content: ""; position: absolute; inset: -4px; }
+@media (hover: hover) and (pointer: fine) { .map-control:hover, .key-info:hover { color: var(--ink-2); } }
+/* The key: one line of the colours and their prices, the hatch, and the way to how prices are worked out, on a backdrop of sea. */
+.map-key { position: absolute; inset-block-end: calc(var(--covered-bottom, 0px) + var(--space-2)); inset-inline-start: var(--float-gap); max-inline-size: calc(100% - 2 * var(--float-gap) - 48px); display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 2px var(--space-2); border-radius: var(--radius-control); background: color-mix(in oklab, var(--sea) 88%, transparent); font-size: var(--text-small); color: var(--ink-2); pointer-events: none; }
+.key-line { display: flex; align-items: center; gap: var(--space-2); white-space: nowrap; }
 .map-key .amount { color: var(--ink); font-weight: 500; }
 .key-band { inline-size: 96px; block-size: 6px; border-radius: 3px; box-shadow: inset 0 0 0 0.5px var(--flag-edge); }
-.key-no-price { display: inline-flex; align-items: center; gap: var(--space-1); margin-inline-start: var(--space-3); }
-.key-estimate { margin-inline-start: var(--space-3); }
-.map-key ui-popover-trigger, .key-about { margin-inline-start: var(--space-3); pointer-events: auto; color: var(--ink-2); }
+.key-no-price { display: inline-flex; align-items: center; gap: var(--space-1); margin-inline-start: var(--space-2); }
+.key-info { position: relative; display: grid; place-items: center; inline-size: 20px; block-size: 20px; color: var(--ink-2); pointer-events: auto; }
+.key-info .icon { inline-size: 14px; block-size: 14px; }
+.key-info::before { inset: -12px; }
 
 /* Lists: the kit's select and combobox popups, with each choice's price beside it. */
 .list { min-inline-size: max(var(--anchor-width), 280px); max-block-size: min(var(--available-height), 520px); padding: var(--space-1); border-radius: var(--radius-surface); box-shadow: var(--shadow-menu); font-size: var(--text-body); }
@@ -346,12 +351,12 @@ body { display: block; position: relative; }
   .column-local { font-size: var(--text-small); }
   .column-compared.is-empty .column-place .flag-empty { display: none; }
   .band-notice { padding: var(--space-1) var(--space-3) 6px; font-size: var(--text-small); }
-  .icon-button { inline-size: 40px; block-size: 40px; }
-  .map-zoom { inset-block-end: calc(var(--covered-bottom, 0px) + 6px); gap: 6px; }
-  .map-world { block-size: 40px; }
-  .map-key { inset-block-end: calc(var(--covered-bottom, 0px) + 6px); max-inline-size: calc(100% - 2 * var(--float-gap) - 52px); padding: 2px var(--space-2); font-size: 11px; }
-  .key-estimate { flex-basis: 100%; margin-inline-start: 0; }
-  .key-no-price { margin-inline-start: var(--space-1); }
+  .map-zoom { inset-block-end: calc(var(--covered-bottom, 0px) + 6px); }
+  .icon-button { position: relative; }
+  .icon-button::before { content: ""; position: absolute; inset: -6px; }
+  .map-key { inset-block-end: calc(var(--covered-bottom, 0px) + 6px); max-inline-size: calc(100% - 2 * var(--float-gap) - 44px); padding: 2px 6px; font-size: 11px; }
+  .key-line { gap: 6px; }
+  .key-no-price { margin-inline-start: 2px; }
   .map-label { --flag-width: 20px; font-size: 11px; }
   .map-label::before { content: ""; position: absolute; inset: -6px -2px; }
   .key-band { inline-size: 48px; }
