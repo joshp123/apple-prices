@@ -113,21 +113,30 @@ function cardRows(comparison: PriceComparison): CardRow[] {
 
 const rolesWords = (roles: ComparisonRole[]) => roles.map((role, index) => (index ? roleWords[role].toLowerCase() : roleWords[role])).join(', ');
 
-// Every line of the card is measured before it is placed: the title, the specs, then one row per place, each as tall as its words need.
-// A row is two lines: the role, then the price with its local money in brackets; the place's name, then how it differs from me and how
-// tax was reached. Words that do not fit beside the name run on below it. The photo tile takes the width the words leave, never under 360.
+// The card reads top to bottom: the product and its whole configuration across the card, then the photo, large, beside one row per
+// place. Every line is measured before it is placed. A row's first line is the role, the price and its local money, all on one baseline;
+// its second is the place's name and how it differs from me, on another. A US state's estimate gets a line of its own, and words that do
+// not fit beside the name run on below it.
 const titleStyle: TextStyle = { fontSize: 72, fontWeight: 700, letterSpacingEm: -0.03 };
 const softStyle: TextStyle = { fontSize: smallestFontSize, fontWeight: 400, letterSpacingEm: -0.015, colour: softInkColour };
 const amountStyle: TextStyle = { fontSize: 68, fontWeight: 700, letterSpacingEm: -0.035 };
 const nameStyle: TextStyle = { fontSize: 56, fontWeight: 600, letterSpacingEm: -0.02 };
 const unpricedStyle: TextStyle = { fontSize: smallestFontSize, fontWeight: 600, letterSpacingEm: -0.015 };
-const titleLineHeight = 80, specLineHeight = 56, amountLineHeight = 64, nameLineHeight = 56, smallPrintLineHeight = 52, gapBelowSpecs = 12;
-const rowsBottomLimit = footerBaseline - 56, flagHeight = 56, flagWidth = flagHeight * 1.5, flagGap = 24, gap = 28;
-// Each row has this much air above and below, unless the words only fit without it.
-const photoTileSizes = [600, 560, 520, 480, 440, 400, 360], rowPaddings = [6, 0];
+const titleLineHeight = 80, specLineHeight = 56, gapBelowSpecs = 28, gapBesidePhoto = 48;
+const bodyBottom = footerBaseline - 62, flagHeight = 56, flagWidth = flagHeight * 1.5, flagGap = 24, gap = 48, localMoneyGap = 16;
+// Line heights for a row, roomy first; the tighter set is used only when the roomy one does not fit.
+type RowMetrics = { amountLine: number; nameLine: number; smallLine: number };
+const rowMetrics: RowMetrics[] = [{ amountLine: 66, nameLine: 58, smallLine: 52 }, { amountLine: 60, nameLine: 52, smallLine: 50 }];
+const largestPhotoTile = 600, smallestPhotoTile = 320, narrowestRows = 820;
 
 const withSize = (style: TextStyle, fontSize: number): TextStyle => ({ ...style, fontSize });
 const fitted = (text: string, style: TextStyle, widthLimit: number) => withSize(style, Math.max(smallestFontSize, largestFontSizeThatFits(text, style, widthLimit)));
+
+// Text placed on a given baseline, so words of different sizes on one line sit on the same one.
+function textOnBaseline(text: string, x: number, baseline: number, style: TextStyle, anchor: TextAnchor = 'start'): string {
+  return textLine(text, x, baseline - (style.fontSize * interCapitalHeightEm), style.fontSize * interCapitalHeightEm, style, anchor);
+}
+const baselineOf = (lineTop: number, lineHeight: number, style: TextStyle) => lineTop + (lineHeight + style.fontSize * interCapitalHeightEm) / 2;
 
 // Lays the small print out from the right edge, joining whole parts ("(£1,999)", "$459 more") while they fit,
 // and breaking a part only when it alone is too wide for its line.
@@ -143,85 +152,88 @@ function rightAlignedLines(parts: string[], firstLineWidth: number, otherLinesWi
   return lines;
 }
 
+type RowLayout = { textLeft: number; textRight: number; metrics: RowMetrics; localMoneyBesidePrice: boolean };
 // localMoneyFits says whether the local money fitted beside the price, so a card puts it there in every row or in none.
-type MeasuredRow = { height: number; localMoneyFits: boolean; draw: (top: number, extraPadding: number) => string };
+type MeasuredRow = { height: number; localMoneyFits: boolean; priceFits: boolean; draw: (top: number) => string };
 
-type RowLayout = { textLeft: number; textRight: number; rowPadding: number; localMoneyBesidePrice: boolean };
-
-function measuredRow(comparison: PriceComparison, pictures: ShareCardPictures, row: CardRow, { textLeft, textRight, rowPadding, localMoneyBesidePrice }: RowLayout): MeasuredRow {
+function measuredRow(comparison: PriceComparison, pictures: ShareCardPictures, row: CardRow, { textLeft, textRight, metrics, localMoneyBesidePrice }: RowLayout): MeasuredRow {
+  const { amountLine, nameLine, smallLine } = metrics;
   const nameLeft = textLeft + flagWidth + flagGap, width = textRight - nameLeft;
   const role = rolesWords(row.roles), name = placeName(comparison.snapshot, row.placeCode);
   const nameAt = fitted(name, nameStyle, width * 0.6), roleWidth = textWidth(role, softStyle), nameWidth = textWidth(name, nameAt);
-  const lineTop = (top: number, line: number) => top + rowPadding + (line === 0 ? 0 : amountLineHeight + (line - 1) * smallPrintLineHeight);
-  const flagAndNames = (top: number) => flag(pictures, row.placeCode, textLeft, top + rowPadding + 8, flagHeight)
-    + textLine(role, nameLeft, lineTop(top, 0), amountLineHeight, softStyle) + textLine(name, nameLeft, lineTop(top, 1), nameLineHeight, nameAt);
+  const firstBaseline = (top: number) => baselineOf(top, amountLine, amountStyle), secondBaseline = (top: number) => baselineOf(top + amountLine, nameLine, nameAt);
+  const flagAndNames = (top: number) => flag(pictures, row.placeCode, textLeft, firstBaseline(top) - flagHeight + 4, flagHeight)
+    + textOnBaseline(role, nameLeft, firstBaseline(top), softStyle) + textOnBaseline(name, nameLeft, secondBaseline(top), nameAt);
   const words = priceWords(comparison, row.placePrice, { shortenMillions: true });
   if (!words) {
-    // No price: the reason stands where the price would, beside the role and the name.
+    // No price: the reason stands where the price would.
     const reasonLines = wrappedLines(unpricedWordsOnShareCard(row.placePrice), unpricedStyle, width - Math.max(roleWidth, nameWidth) - gap);
-    const height = rowPadding * 2 + Math.max(amountLineHeight + nameLineHeight, reasonLines.length * smallPrintLineHeight);
-    return { height, localMoneyFits: true, draw: (top, extraPadding) => flagAndNames(top + extraPadding) + reasonLines.map((line, index) => textLine(line, textRight, top + extraPadding + rowPadding + 6 + index * smallPrintLineHeight, smallPrintLineHeight, unpricedStyle, 'end')).join('') };
+    const height = Math.max(amountLine + nameLine, amountLine + (reasonLines.length - 1) * smallLine + 8);
+    return { height, localMoneyFits: true, priceFits: true, draw: top => flagAndNames(top)
+      + reasonLines.map((line, index) => textOnBaseline(line, textRight, firstBaseline(top) + index * smallLine, unpricedStyle, 'end')).join('') };
   }
   const amountAt = fitted(words.inDisplayCurrency, amountStyle, width - roleWidth - gap);
   const amountWidth = textWidth(words.inDisplayCurrency, amountAt);
   const localMoney = words.inLocalCurrency && `(${words.inLocalCurrency})`;
-  const localMoneyFits = !localMoney || roleWidth + gap + textWidth(localMoney, softStyle) + 16 + amountWidth <= width;
+  const localMoneyFits = !localMoney || roleWidth + gap + amountWidth + localMoneyGap + textWidth(localMoney, softStyle) <= width;
   const localBesidePrice = !!localMoney && localMoneyBesidePrice && localMoneyFits;
   const difference = row.placePrice.kind === 'priced' && !row.roles.includes('visitor') ? differenceFromVisitorWords(comparison, row.placePrice.price, null) : '';
-  const tax = salesTaxLabel(row.placePrice) === 'Population-weighted average' ? 'population-weighted average' : '';
-  const smallPrint = [localBesidePrice ? '' : localMoney, difference, tax].filter(Boolean);
+  const smallPrint = [localBesidePrice ? '' : localMoney, difference].filter(Boolean);
   const besideName = width - nameWidth - gap;
   // When not even the first part fits beside the name, the small print starts on the line below it.
   const startsBesideName = !smallPrint.length || textWidth(smallPrint[0], softStyle) <= besideName;
   const smallPrintLines = rightAlignedLines(smallPrint, startsBesideName ? besideName : width, width);
-  const linesBelowName = Math.max(0, smallPrintLines.length - (startsBesideName ? 1 : 0));
-  const height = rowPadding * 2 + amountLineHeight + nameLineHeight + linesBelowName * smallPrintLineHeight;
-  return { height, localMoneyFits, draw: (rowTop, extraPadding) => {
-    const top = rowTop + extraPadding;
-    const amountRight = localBesidePrice ? textRight - textWidth(localMoney, softStyle) - 16 : textRight;
-    const firstSmallPrintLine = startsBesideName ? 1 : 2;
+  const isEstimate = salesTaxLabel(row.placePrice) === 'Population-weighted average';
+  const linesBelowName = Math.max(0, smallPrintLines.length - (startsBesideName ? 1 : 0)) + (isEstimate ? 1 : 0);
+  const height = amountLine + nameLine + linesBelowName * smallLine;
+  const priceFits = roleWidth + gap + amountWidth <= width;
+  return { height, localMoneyFits, priceFits, draw: top => {
+    const first = firstBaseline(top), second = secondBaseline(top);
+    const amountRight = localBesidePrice ? textRight - textWidth(localMoney, softStyle) - localMoneyGap : textRight;
+    const smallPrintBaselines = smallPrintLines.map((_, index) => (startsBesideName ? second + index * smallLine : second + (index + 1) * smallLine));
+    const lastBaseline = smallPrintBaselines.length ? Math.max(second, smallPrintBaselines[smallPrintBaselines.length - 1]) : second;
     return flagAndNames(top)
-      + textLine(words.inDisplayCurrency, amountRight, lineTop(top, 0), amountLineHeight, amountAt, 'end')
-      + (localBesidePrice ? textLine(localMoney, textRight, lineTop(top, 0) + 6, amountLineHeight, softStyle, 'end') : '')
-      + smallPrintLines.map((line, index) => textLine(line, textRight, lineTop(top, firstSmallPrintLine + index) + (index || startsBesideName ? 2 : 0), firstSmallPrintLine + index === 1 ? nameLineHeight : smallPrintLineHeight, softStyle, 'end')).join('');
+      + textOnBaseline(words.inDisplayCurrency, amountRight, first, amountAt, 'end')
+      + (localBesidePrice ? textOnBaseline(localMoney, textRight, first, softStyle, 'end') : '')
+      + smallPrintLines.map((line, index) => textOnBaseline(line, textRight, smallPrintBaselines[index], softStyle, 'end')).join('')
+      + (isEstimate ? textOnBaseline('population-weighted average', textRight, lastBaseline + smallLine, softStyle, 'end') : '');
   } };
 }
 
 export function shareCardSvg(comparison: PriceComparison, pictures: ShareCardPictures): string {
   const { product, configuration } = comparison;
-  const textRight = shareCardWidth - sideMargin;
-  const layoutFor = (tileSize: number, rowPadding: number, localMoneyBesidePrice: boolean) => {
-    const textLeft = sideMargin + tileSize + 56, widthLimit = textRight - textLeft;
-    const title = fitted(product.productName, titleStyle, widthLimit);
-    const specLines = wrappedLines(specLine(product, configuration), softStyle, widthLimit);
-    const rows = cardRows(comparison).map(row => measuredRow(comparison, pictures, row, { textLeft, textRight, rowPadding, localMoneyBesidePrice }));
-    const rowsTop = topOfContent + titleLineHeight + specLines.length * specLineHeight + gapBelowSpecs;
-    const spare = rowsBottomLimit - rowsTop - rows.reduce((sum, row) => sum + row.height, 0);
-    const fits = spare >= 0 && (!localMoneyBesidePrice || rows.every(row => row.localMoneyFits));
-    return { tileSize, textLeft, widthLimit, title, specLines, rows, rowsTop, fits, spare };
+  const textRight = shareCardWidth - sideMargin, fullWidth = textRight - sideMargin;
+  const title = fitted(product.productName, titleStyle, fullWidth);
+  const specLines = wrappedLines(specLine(product, configuration), softStyle, fullWidth);
+  const bodyTop = topOfContent + titleLineHeight + specLines.length * specLineHeight + gapBelowSpecs, bodyHeight = bodyBottom - bodyTop;
+  // The photo is a square as tall as the space below the specs allows; it gives up width, 40 pixels at a time, only when the rows need it.
+  const largestTile = Math.min(largestPhotoTile, bodyHeight, fullWidth - gapBesidePhoto - narrowestRows);
+  const layoutFor = (tileSize: number, metrics: RowMetrics, localMoneyBesidePrice: boolean) => {
+    const textLeft = sideMargin + tileSize + gapBesidePhoto;
+    const rows = cardRows(comparison).map(row => measuredRow(comparison, pictures, row, { textLeft, textRight, metrics, localMoneyBesidePrice }));
+    const spare = bodyHeight - rows.reduce((sum, row) => sum + row.height, 0);
+    return { tileSize, textLeft, rows, spare, fits: spare >= 0 && rows.every(row => row.priceFits) && (!localMoneyBesidePrice || rows.every(row => row.localMoneyFits)) };
   };
-  // The largest photo the words leave room for, with the local money beside each price where it fits in every row.
-  const smallestTile = photoTileSizes[photoTileSizes.length - 1];
-  const candidates = [...photoTileSizes.flatMap(size => [layoutFor(size, rowPaddings[0], true), layoutFor(size, rowPaddings[0], false)]), layoutFor(smallestTile, rowPaddings[1], false)];
-  const layout = candidates.find(candidate => candidate.fits) ?? candidates[candidates.length - 1];
-  const { tileSize, textLeft, widthLimit, title, specLines, rows, rowsTop, spare } = layout;
-  // Spare height goes back to the rows as air, up to a limit, so a short card's rows do not huddle at the top.
-  const extraPadding = Math.max(0, Math.min(14, spare / (rows.length * 2)));
-  const tileLeft = sideMargin, tileTop = topOfContent, photoBoxSize = tileSize * 5 / 6;
-  const photoLeft = tileLeft + (tileSize - photoBoxSize) / 2, photoTop = tileTop + (tileSize - photoBoxSize) / 2;
+  const tileSizes = Array.from({ length: Math.floor((largestTile - smallestPhotoTile) / 40) + 1 }, (_, step) => largestTile - step * 40);
+  const candidates = tileSizes.flatMap(size => rowMetrics.flatMap(metrics => [layoutFor(size, metrics, true), layoutFor(size, metrics, false)]));
+  const { tileSize, textLeft, rows, spare } = candidates.find(candidate => candidate.fits) ?? candidates[candidates.length - 1];
+  const widthLimit = textRight - textLeft;
+  // The rows share the photo's height: spare height goes between them, up to a limit, so a short card's rows do not huddle at the top.
+  const gapBetweenRows = rows.length > 1 ? Math.max(0, Math.min(40, spare / (rows.length - 1))) : 0;
+  const photoBoxSize = tileSize * 5 / 6, photoLeft = sideMargin + (tileSize - photoBoxSize) / 2, photoTop = bodyTop + (tileSize - photoBoxSize) / 2;
 
-  let svg = textLine(product.productName, textLeft, topOfContent, titleLineHeight, title);
-  specLines.forEach((line, index) => { svg += textLine(line, textLeft, topOfContent + titleLineHeight + index * specLineHeight, specLineHeight, softStyle); });
-  let top = rowsTop;
+  let svg = textLine(product.productName, sideMargin, topOfContent, titleLineHeight, title);
+  specLines.forEach((line, index) => { svg += textLine(line, sideMargin, topOfContent + titleLineHeight + index * specLineHeight, specLineHeight, softStyle); });
+  let top = bodyTop;
   rows.forEach(({ height, draw }, index) => {
-    if (index) svg += `<rect x="${textLeft}" y="${(top - 1).toFixed(1)}" width="${widthLimit}" height="2" fill="${inkColour}" fill-opacity="0.1"/>`;
-    svg += draw(top, extraPadding);
-    top += height + extraPadding * 2;
+    if (index) svg += `<rect x="${textLeft}" y="${(top - gapBetweenRows / 2 - 1).toFixed(1)}" width="${widthLimit}" height="2" fill="${inkColour}" fill-opacity="0.1"/>`;
+    svg += draw(top);
+    top += height + gapBetweenRows;
   });
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${shareCardWidth}" height="${shareCardHeight}" viewBox="0 0 ${shareCardWidth} ${shareCardHeight}">
 <rect width="${shareCardWidth}" height="${shareCardHeight}" fill="${paperColour}"/>
-<rect x="${tileLeft}" y="${tileTop}" width="${tileSize}" height="${tileSize}" rx="${tileSize / 15}" fill="${photoTileColour}"/>
+<rect x="${sideMargin}" y="${bodyTop}" width="${tileSize}" height="${tileSize}" rx="${tileSize / 15}" fill="${photoTileColour}"/>
 ${productPhoto(pictures, photoLeft, photoTop, photoBoxSize)}
 ${svg}
 ${textLine('appleprices.jjpcodes.com', sideMargin, footerBaseline - 50, 50, { fontSize: smallestFontSize, fontWeight: 600, letterSpacingEm: -0.02 })}

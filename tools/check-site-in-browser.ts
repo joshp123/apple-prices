@@ -32,16 +32,25 @@ async function zoomAtPlace(page: Page, placeCode: string, steps: number): Promis
 }
 // Opens a place's pop-up as a visitor does: its label when the map shows one, otherwise the place itself.
 // At world zoom a state's outline opens its country, so the United States and Canada are opened by one of theirs not under a label.
-async function openPlace(page: Page, placeCode: string): Promise<void> {
+async function openPlace(page: Page, placeCode: string, isRetry = false): Promise<void> {
   const label = page.locator(`.map-label[data-place="${placeCode}"]`);
   if (await label.isVisible()) return label.click();
   const outlines = ({ US: ['US-TX', 'US-KS', 'US-NE', 'US-SD', 'US-MT'], CA: ['CA-SK', 'CA-MB', 'CA-QC', 'CA-NT'] } as Record<string, string[]>)[placeCode] ?? [placeCode];
   for (const outline of outlines) {
-    const box = (await page.locator(`path[data-place="${outline}"]`).boundingBox())!, x = box.x + box.width / 2, y = box.y + box.height / 2;
-    const isUncovered = await page.evaluate(([x, y, outline]) => document.elementFromPoint(x as number, y as number)?.getAttribute('data-place') === outline, [x, y, outline]);
-    if (isUncovered) return page.mouse.click(x, y);
+    const box = (await page.locator(`path[data-place="${outline}"]`).boundingBox())!;
+    const spots = [0.5, 0.3, 0.7, 0.15, 0.85].flatMap(across => [0.5, 0.3, 0.7, 0.15, 0.85].map(down => [box.x + box.width * across, box.y + box.height * down]));
+    for (const [x, y] of spots) {
+      const isUncovered = await page.evaluate(([x, y, outline]) => document.elementFromPoint(x as number, y as number)?.getAttribute('data-place') === outline, [x, y, outline]);
+      if (isUncovered) return page.mouse.click(x, y);
+    }
   }
-  throw new Error(`No uncovered spot to open ${placeCode}`);
+  // Labels cover the whole place at this zoom, so zoom in over it, as a visitor would, and look again.
+  if (isRetry) throw new Error(`No uncovered spot to open ${placeCode}`);
+  const box = (await page.locator(`path[data-place="${outlines[0]}"]`).boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  for (let step = 0; step < 2; step++) { await page.mouse.wheel(0, -300); await page.waitForTimeout(150); }
+  await settled(page);
+  return openPlace(page, placeCode, true);
 }
 async function showStatesOf(page: Page, placeCode: 'US' | 'CA'): Promise<void> {
   await openPlace(page, placeCode);
@@ -93,6 +102,9 @@ const pageStates: [name: string, address: string, countryOpenedIn?: string, acti
   ['43-prices-include-tax', '/?me=NL', undefined, page => page.getByRole('button', { name: 'Including tax' }).click()],
   ['44-california-sales-tax', '/?me=US-CA', undefined, page => page.getByRole('button', { name: /^Including [\d.]+% sales tax/ }).click()],
   ['48-shared-link-opened-in-another-country', '/iphone-18-pro/6.3in-256gb?me=NL', 'DE'],
+  ['49-range-in-dong-against-a-province', '/macbook-pro/16in-m5-max-18cpu-32gpu-36gb-memory-2000gb-standard-glass?me=US&vs=CA-NT&in=VND'],
+  ['50-canada-range-compared-with-the-united-states', '/?me=CA&vs=US'],
+  ['51-california-compared-with-the-netherlands', '/?me=NL&vs=US-CA'],
 ];
 const shareCards: [string, string][] = [
   ['card-01-netherlands', '/share-card/iphone-18-pro/6.3in-256gb.png?me=NL'],
@@ -211,6 +223,9 @@ function checkShareCardText(): void {
     const svg = shareCardSvg(priceComparison(snapshot, selectionFromShareLink(snapshot, link)), { productPhoto: { imageName: '', productBox: [0, 0, 800, 800], onOpaqueBackdrop: false }, productPhotoDataUrl: '', flagDataUrls: {} });
     const fontSizes = [...svg.matchAll(/font-size="([\d.]+)"/g)].map(match => Number(match[1]));
     check(`${name} has no line under 12 pixels at 400 wide`, Math.min(...fontSizes) >= 48, `smallest ${Math.min(...fontSizes)}`);
+    // Every line above the footer ends before the footer's own line begins.
+    const baselines = [...svg.matchAll(/<text x="[\d.]+" y="([\d.]+)"[^>]*>([^<]*)</g)].filter(match => !/jjpcodes/.test(match[2])).map(match => Number(match[1]));
+    check(`${name} keeps its rows clear of the footer`, Math.max(...baselines) <= 800, `lowest baseline ${Math.max(...baselines)}`);
   }
 }
 
@@ -344,7 +359,7 @@ async function journeyByKeyboard(): Promise<void> {
   await page.keyboard.press('+');
   await page.keyboard.press('ArrowRight');
   check('plus and arrow keys zoom and move the map', await page.locator('.map-land').getAttribute('transform') !== landBefore);
-  check('the map key shows the cheapest and dearest price', /^\$[\d,]+\$[\d,]+NopricefromApple$/.test((await page.locator('.map-key').innerText()).replace(/\s/g, '')), await page.locator('.map-key').innerText());
+  check('the map key shows the cheapest and dearest price and says US states are averages', /^\$[\d,]+\$[\d,]+NopricefromAppleUSstates:population-weightedaveragesalestax$/.test((await page.locator('.map-key').innerText()).replace(/\s/g, '')), await page.locator('.map-key').innerText());
   await context.close();
 }
 

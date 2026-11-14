@@ -186,6 +186,7 @@ button { margin: 0; padding: 0; border: 0; background: none; cursor: pointer; te
 .band[data-amount-length="longer"] .column-price .amount { font-size: 28px; }
 .band[data-amount-length="longest"] .column-price .amount { font-size: 24px; }
 .column-price-range .amount { font-size: 24px !important; letter-spacing: -0.015em; }
+.range-to { font-size: var(--text-body); font-weight: 400; color: var(--ink-2); }
 .price-missing { display: block; font-size: var(--text-strong); font-weight: 600; line-height: 1.25; text-wrap: balance; }
 .price-missing-quiet { font-size: var(--text-body); font-weight: 400; line-height: 1.3; color: var(--ink-2); }
 /* With nothing to compare, the hint runs down into the column's own empty rows instead of making the price row taller for every column. */
@@ -234,6 +235,7 @@ button { margin: 0; padding: 0; border: 0; background: none; cursor: pointer; te
 .map-key .amount { color: var(--ink); font-weight: 500; }
 .key-band { inline-size: 96px; block-size: 6px; border-radius: 3px; box-shadow: inset 0 0 0 0.5px var(--flag-edge); }
 .key-no-price { display: inline-flex; align-items: center; gap: var(--space-1); margin-inline-start: var(--space-3); }
+.key-estimate { margin-inline-start: var(--space-3); }
 
 /* Lists: the kit's select and combobox popups, with each choice's price beside it. */
 .list { min-inline-size: max(var(--anchor-width), 280px); max-block-size: min(var(--available-height), 520px); padding: var(--space-1); border-radius: var(--radius-surface); box-shadow: var(--shadow-menu); font-size: var(--text-body); }
@@ -253,6 +255,7 @@ button { margin: 0; padding: 0; border: 0; background: none; cursor: pointer; te
 .list-search input { inline-size: 100%; block-size: var(--control-height); padding-inline: var(--space-3); border: 1px solid var(--edge); border-radius: var(--radius-control); background: var(--raised); }
 .list-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); padding: var(--space-1) var(--space-2) var(--space-2); font-size: var(--text-label); }
 .list-note { font-size: var(--text-label); color: var(--ink-2); }
+.list-qualifier { flex-basis: 100%; font-size: var(--text-small); color: var(--ink-2); }
 .list-note:empty { display: none; }
 .flag-in-list { --flag-width: 24px; }
 
@@ -309,7 +312,7 @@ button { margin: 0; padding: 0; border: 0; background: none; cursor: pointer; te
   :root { --control-height: 44px; }
   .bar {
     grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "photo product share" "photo configuration currency";
-    gap: var(--space-2) var(--space-2); min-block-size: 0; padding-block: max(var(--space-3), env(safe-area-inset-top)) var(--space-3);
+    gap: var(--space-2) var(--space-2); min-block-size: 0; padding-block: max(var(--space-2), env(safe-area-inset-top)) var(--space-2);
   }
   .bar-photo { align-self: center; }
   .control-product, .control-configuration { block-size: auto; min-block-size: var(--control-height); padding-block: var(--space-1); line-height: 1.2; white-space: normal; }
@@ -318,10 +321,16 @@ button { margin: 0; padding: 0; border: 0; background: none; cursor: pointer; te
   .specs-in-short { display: block; }
   .bar-cell > ui-select, .bar-cell > ui-dialog-trigger, .bar-cell .control { flex: 1; inline-size: 100%; }
   .bar-currency .control, .bar-share .control { justify-content: center; }
-  .band, .band:has(.column-compared.is-empty) { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(12, auto); padding-block: var(--space-3) var(--space-4); }
-  .column-cheapest, .column-most-expensive { margin-block-start: var(--space-4); padding-block-start: var(--space-3); border-block-start: 1px solid var(--rule); }
+  .band, .band:has(.column-compared.is-empty) { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(12, auto); padding-block: var(--space-2) var(--space-3); }
+  .column-cheapest, .column-most-expensive { margin-block-start: var(--space-3); padding-block-start: var(--space-2); border-block-start: 1px solid var(--rule); }
   .column-cheapest::before { display: none; }
-  .column-most-expensive::before { inset-block-start: var(--space-3); }
+  /* With nothing to compare, the visitor's column takes the width and the comparison is one compact row below it, until a place is chosen. */
+  .band:has(.column-compared.is-empty) { grid-template-rows: repeat(13, auto); }
+  .band:has(.column-compared.is-empty) .column-visitor { grid-column: 1 / -1; }
+  .column-compared.is-empty { grid-column: 1 / -1; grid-row: span 1; display: flex; align-items: center; gap: var(--space-3); margin-block-start: var(--space-2); padding-block-start: var(--space-2); border-block-start: 1px solid var(--rule); }
+  .column-compared.is-empty::before, .column-compared.is-empty :is(.column-price, .column-local, .column-note, .column-meter) { display: none; }
+  .column-compared.is-empty .column-place { margin-block-start: 0; }
+  .column-most-expensive::before { inset-block-start: var(--space-2); }
   .column-place .flag-empty { display: none; }
   .price-missing-quiet { font-size: var(--text-label); }
   .column-place { margin-block-start: var(--space-1); }
@@ -340,7 +349,8 @@ button { margin: 0; padding: 0; border: 0; background: none; cursor: pointer; te
   .column-note { margin-block-start: 0; font-size: var(--text-label); }
   .column-meter { block-size: 4px; margin-block-start: var(--space-2); }
   .map { min-block-size: 220px; }
-  .map-zoom { flex-direction: row; align-items: center; inset-block-end: calc(max(var(--space-3), env(safe-area-inset-bottom)) + 28px); }
+  .map-zoom { flex-direction: row; align-items: center; inset-block-end: calc(max(var(--space-2), env(safe-area-inset-bottom)) + 52px); }
+  .key-estimate { flex-basis: 100%; margin-inline-start: 0; }
   .map-world { block-size: 44px; }
   .map-key { inset-block-end: max(var(--space-2), env(safe-area-inset-bottom)); }
   .map-label { --flag-width: 20px; font-size: 11px; }

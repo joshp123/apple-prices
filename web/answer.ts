@@ -10,7 +10,7 @@ import {
 } from '../src/price-comparison.ts';
 import { countryName } from '../src/take-home-prices.ts';
 import { escapeHtml, flagHtml, icons } from './html.ts';
-import type { PageView } from './page-view.ts';
+import { usEstimateNote, type PageView } from './page-view.ts';
 
 export type PlacePickerPurpose = 'visitor' | 'compared';
 const rolesInOrder: ComparisonRole[] = ['visitor', 'compared', 'cheapest', 'most-expensive'];
@@ -19,7 +19,7 @@ const placePickerHtml = (purpose: PlacePickerPurpose) => `<ui-combobox id="${pur
     <ui-combobox-trigger><button type="button" id="${purpose}-place-button" class="control control-place"></button></ui-combobox-trigger>
     <ui-combobox-content hidden anchor="#${purpose}-place-button" align="start" side-offset="6" class="list list-of-places">
       <div class="list-search"><ui-combobox-input><input autofocus name="${purpose}-place" autocomplete="off" spellcheck="false" placeholder="Search countries, states and provinces…" aria-label="Search countries, states and provinces"></ui-combobox-input></div>
-      ${purpose === 'visitor' ? `<div class="list-actions"><button type="button" class="text-action" data-action="use-my-location">${icons.locate}<span>Use my location</span></button><p class="list-note" role="status"></p></div>` : ''}
+      <div class="list-actions">${purpose === 'visitor' ? `<button type="button" class="text-action" data-action="use-my-location">${icons.locate}<span>Use my location</span></button><p class="list-note" role="status"></p>` : ''}<p class="list-qualifier">${usEstimateNote}</p></div>
       <ui-combobox-empty>No place with that name.</ui-combobox-empty>
       <ui-combobox-list></ui-combobox-list>
     </ui-combobox-content>
@@ -49,11 +49,12 @@ const chooseYoursShort: Record<string, string> = { CA: 'Choose your province' };
 
 // What the visitor's price includes, in a few words; the pop-up behind them says how it was worked out. A US state's rate is the
 // population-weighted average of its cities and counties, and says so, since few people pay exactly that.
+const isEstimate = (placePrice: PlacePrice) => salesTaxLabel(placePrice) === 'Population-weighted average';
 function taxWords(placePrice: PlacePrice & { kind: 'priced' }): string {
   const price = placePrice.price;
   if (price.shelfPriceIncludesSalesTax) return 'Including tax';
   if (!price.additionalSalesTaxPercent) return 'No sales tax';
-  const average = salesTaxLabel(placePrice) === 'Population-weighted average' ? ', population-weighted average' : '';
+  const average = isEstimate(placePrice) ? ', population-weighted average' : '';
   return `Including ${price.additionalSalesTaxPercent}% sales tax${average}`;
 }
 
@@ -74,8 +75,12 @@ function noteHtml(view: PageView, column: ComparisonColumn | undefined, role: Co
   const seeOwnPrice = openerPlaceCode ? textAction('see-price-where-opened', `See the price in ${escapeHtml(placeNameAfterIn(snapshot, openerPlaceCode))}`) : '';
   const price = column?.placePrice;
   if (role !== 'visitor') {
-    if (price?.kind === 'priced') return escapeHtml(differenceFromVisitorWords(comparison, price.price, visitorInComparisons));
-    return price?.kind === 'priced-by-state-or-province' ? `Depends on the ${stateOrProvinceWords(column!.placeCode).one}` : '';
+    if (price?.kind === 'priced') {
+      const estimate = isEstimate(price) ? `<span>${taxWords(price)}</span>` : '';
+      return `<span>${escapeHtml(differenceFromVisitorWords(comparison, price.price, visitorInComparisons))}</span>${estimate}`;
+    }
+    if (price?.kind !== 'priced-by-state-or-province') return '';
+    return `Depends on the ${stateOrProvinceWords(column!.placeCode).one}${column!.placeCode === 'US' ? ', population-weighted average sales tax' : ''}`;
   }
   if (!price) return `<span class="note-actions">${useMyLocation}</span>${locationProblem}`;
   if (price.kind === 'priced') {
@@ -115,7 +120,9 @@ export function drawAnswer(answer: HTMLElement, view: PageView): void {
     }
     const unpriced = column && !words ? unpricedSentence(comparison, column.placePrice, column.placeCode) : role === 'visitor' && !column ? 'Where are you?' : '';
     const nothingChosen = role === 'compared' && !column ? '<span class="price-missing price-missing-quiet">Any country, state or province</span>' : '';
-    part('price').innerHTML = words ? `<span class="amount">${words.inDisplayCurrency}</span>` : nothingChosen || `<span class="price-missing">${escapeHtml(unpriced)}</span>`;
+    // A range may break between its two ends, never inside an amount.
+    const amounts = words?.inDisplayCurrency.split(' to ').map(amount => `<span class="amount">${amount}</span>`).join(' <span class="range-to">to</span> ');
+    part('price').innerHTML = amounts || nothingChosen || `<span class="price-missing">${escapeHtml(unpriced)}</span>`;
     part('price').classList.toggle('column-price-range', column?.placePrice.kind === 'priced-by-state-or-province');
     part('local').textContent = words?.inLocalCurrency ? `(${words.inLocalCurrency})` : '';
     part('note').innerHTML = noteHtml(view, column, role);

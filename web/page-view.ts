@@ -26,3 +26,6 @@ export type PageView = {
 };
 
 export const isPhoneWidth = () => matchMedia('(max-width: 720px)').matches;
+
+// US state prices add an average sales tax, so they are estimates; one note says so wherever many of them are listed.
+export const usEstimateNote = 'US states: population-weighted average sales tax';

@@ -10,7 +10,7 @@ import { formatMoney } from '../src/money.ts';
 import { amountInCurrency, hasPrice, placePriceOf, priceWords } from '../src/price-comparison.ts';
 import { countryName } from '../src/take-home-prices.ts';
 import { escapeHtml, flagHtml, icons } from './html.ts';
-import { isPhoneWidth, type PageView } from './page-view.ts';
+import { isPhoneWidth, usEstimateNote, type PageView } from './page-view.ts';
 
 type LongitudeAndLatitude = [number, number];
 type MapArea = { words: string; southWestAndNorthEast: [LongitudeAndLatitude, LongitudeAndLatitude] | null; hasShortcut: boolean };
@@ -175,7 +175,8 @@ export function createPriceMap(container: HTMLElement, placesTopology: unknown, 
     const stops = Array.from({ length: 9 }, (_, step) => priceColour(cheapest.takeHomePriceInUsDollars + (dearest.takeHomePriceInUsDollars - cheapest.takeHomePriceInUsDollars) * step / 8, cheapest.takeHomePriceInUsDollars));
     const amount = (price: typeof cheapest) => formatMoney(amountInCurrency(comparison.snapshot, price, displayCurrencyCode), displayCurrencyCode, { shortenMillions: true });
     container.querySelector('.map-key')!.innerHTML = `<span class="amount">${amount(cheapest)}</span><span class="key-band" style="background:linear-gradient(90deg,${stops.join(',')})"></span><span class="amount">${amount(dearest)}</span>`
-      + `<span class="key-no-price"><span class="swatch-no-price"></span>No price from Apple</span>`;
+      + `<span class="key-no-price"><span class="swatch-no-price"></span>No price from Apple</span>`
+      + (comparison.prices.some(price => price.salesTaxRegion && price.additionalSalesTaxPercent && price.territoryCode.startsWith('US-')) ? `<span class="key-estimate">${usEstimateNote}</span>` : '');
   }
 
   function buildLabels({ snapshot, comparison, roleWording }: PageView): void {
