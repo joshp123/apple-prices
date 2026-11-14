@@ -2,9 +2,7 @@
 // Most people meet the site as this picture in a timeline about 400 pixels wide, so the sizes here are a quarter of what they look like.
 import interAdvanceWidths from '../assets/fonts/inter-advance-widths.json' with { type: 'json' };
 import { countryCodeOf, isStateOrProvince, placeName } from './places.ts';
-import { priceColour } from './price-colour.ts';
-import { differenceFromVisitorWords, priceWords, salesTaxLabel, unpricedWordsOnShareCard, type PriceComparison } from './price-comparison.ts';
-import { priceLineMarks, priceLineScale, priceLineTicks, roleWordingOnShareCard, type PriceLineMark } from './price-line.ts';
+import { differenceFromVisitorWords, priceWords, salesTaxLabel, unpricedWordsOnShareCard, type ComparisonColumn, type ComparisonRole, type PriceComparison } from './price-comparison.ts';
 import { productPhotoPixels, shareCardPaperColour, type ProductPhoto } from './product-photos.ts';
 import { specLine } from './spec-words.ts';
 
@@ -16,7 +14,7 @@ export type ShareCardPictures = {
 };
 
 export const shareCardWidth = 1600, shareCardHeight = 900;
-const paperColour = shareCardPaperColour, inkColour = '#1d1d1f', softInkColour = '#5f5f67';
+const paperColour = shareCardPaperColour, inkColour = '#1d1d1f', softInkColour = '#5f5f67', photoTileColour = '#f2f2f4';
 // X crops link pictures to 1.91:1, so nothing sits in the top or bottom 44 pixels.
 const sideMargin = 48, topOfContent = 50, footerBaseline = 850;
 // In a timeline the card is about 400 pixels wide, a quarter of its size, so no line of it is set smaller than this: 12 pixels there.
@@ -83,149 +81,92 @@ function flag(pictures: ShareCardPictures, placeCode: string, left: number, top:
     + roundedPicture(pictures.flagDataUrls[placeCode], left + width - cornerWidth, top + height - cornerHeight, cornerWidth, cornerHeight, height * 0.05);
 }
 
-// Apple's photo, cropped to the product inside its square canvas, against the right edge.
-function productPhoto(pictures: ShareCardPictures, right: number, top: number, boxSize: number): string {
+// Apple's photo, cropped to the product inside its square canvas, centred in a square box.
+function productPhoto(pictures: ShareCardPictures, boxLeft: number, boxTop: number, boxSize: number): string {
   const [left, photoTop, photoRight, bottom] = pictures.productPhoto.productBox;
   const scale = boxSize / Math.max(photoRight - left, bottom - photoTop), width = (photoRight - left) * scale, height = (bottom - photoTop) * scale;
-  const x = right - width, y = top + (boxSize - height) / 2;
+  const x = boxLeft + (boxSize - width) / 2, y = boxTop + (boxSize - height) / 2;
   const cropped = `<clipPath id="product-photo-crop"><rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${width.toFixed(1)}" height="${height.toFixed(1)}"/></clipPath>`
     + `<image href="${pictures.productPhotoDataUrl}" x="${(x - left * scale).toFixed(1)}" y="${(y - photoTop * scale).toFixed(1)}" width="${(productPhotoPixels * scale).toFixed(1)}" height="${(productPhotoPixels * scale).toFixed(1)}" clip-path="url(#product-photo-crop)"/>`;
-  return pictures.productPhoto.onOpaqueBackdrop ? `<g style="mix-blend-mode:darken">${cropped}</g>` : cropped;
+  // The card's copies are JPEGs on the paper colour; darkening lets the tile's grey show through that paper and through Apple's grey backdrops.
+  return `<g style="mix-blend-mode:darken">${cropped}</g>`;
 }
 
-type TextBlock = { lines: string[]; style: TextStyle; lineHeight: number };
-const noText: TextBlock = { lines: [], style: { fontSize: smallestFontSize, fontWeight: 400 }, lineHeight: 0 };
+// One row per named place, in the order people read a comparison: me, the place I compare with, then the world's cheapest and most expensive.
+const rowOrder: ComparisonRole[] = ['visitor', 'compared', 'cheapest', 'most-expensive'];
+const roleWords: Record<ComparisonRole, string> = { visitor: 'Me', compared: 'Compared with', cheapest: 'Cheapest', 'most-expensive': 'Most expensive' };
 
-// Words at one size, on as many lines as they need. Only a single word wider than the limit is set smaller, and never below the smallest size.
-function wrappedBlock(text: string, style: TextStyle, widthLimit: number, lineHeight: number): TextBlock {
-  if (!text) return noText;
-  const widestWord = Math.max(...text.split(' ').map(word => textWidth(word, style)));
-  const fontSize = Math.max(smallestFontSize, Math.min(style.fontSize, Math.floor(style.fontSize * widthLimit / widestWord)));
-  const fitted = { ...style, fontSize };
-  return { lines: wrappedLines(text, fitted, widthLimit), style: fitted, lineHeight: Math.round(lineHeight * fontSize / style.fontSize) };
+type CardRow = { placeCode: string; roles: ComparisonRole[]; placePrice: ComparisonColumn['placePrice'] };
+
+// A place that is two things at once (I live in the cheapest place) gets one row naming both.
+function cardRows(comparison: PriceComparison): CardRow[] {
+  const rows: CardRow[] = [];
+  for (const role of rowOrder) {
+    const column = comparison.columns.find(candidate => candidate.role === role);
+    if (!column) continue;
+    const sameplace = rows.find(row => row.placeCode === column.placeCode);
+    if (sameplace) sameplace.roles.push(role);
+    else rows.push({ placeCode: column.placeCode, roles: [role], placePrice: column.placePrice });
+  }
+  return rows;
 }
 
-// An amount as large as fits on one line. A range that would have to be small breaks after "to" instead.
-function amountBlock(amount: string, style: TextStyle, widthLimit: number): TextBlock {
-  const oneLineFontSize = largestFontSizeThatFits(amount, style, widthLimit), lineHeightFor = (fontSize: number) => Math.round(fontSize * 1.08);
-  if (!amount.includes(' to ') || oneLineFontSize >= 64) return { lines: [amount], style: { ...style, fontSize: Math.max(smallestFontSize, oneLineFontSize) }, lineHeight: lineHeightFor(Math.max(smallestFontSize, oneLineFontSize)) };
-  const lines = [`${amount.split(' to ')[0]} to`, amount.split(' to ')[1]];
-  const fontSize = Math.max(smallestFontSize, Math.min(64, ...lines.map(line => largestFontSizeThatFits(line, style, widthLimit))));
-  return { lines, style: { ...style, fontSize }, lineHeight: lineHeightFor(fontSize) };
-}
-
-// What one place says, top to bottom under its flag: who it is, its name, its price, the price in its own money, how far it is from the visitor's.
-// Every place has the same five blocks, and each block is as tall as the tallest of its kind, so prices line up across the card.
-function columnBlocks(comparison: PriceComparison, mark: PriceLineMark, widthLimit: number): TextBlock[] {
-  const soft = { fontWeight: 400 as const, colour: softInkColour };
-  const role = wrappedBlock(mark.roleWords, { fontSize: 48, ...soft, letterSpacingEm: -0.02 }, widthLimit, 54);
-  const name = wrappedBlock(mark.placeName, { fontSize: 52, fontWeight: 600, letterSpacingEm: -0.02 }, widthLimit, 58);
-  const words = priceWords(comparison, mark.placePrice, { shortenMillions: true });
-  if (!words) return [role, name, wrappedBlock(unpricedWordsOnShareCard(mark.placePrice), { fontSize: 48, fontWeight: 600, letterSpacingEm: -0.02 }, widthLimit, 54), noText, noText];
-  return [
-    role, name,
-    amountBlock(words.inDisplayCurrency, { fontSize: 88, fontWeight: 700, letterSpacingEm: -0.04 }, widthLimit),
-    wrappedBlock(words.inLocalCurrency && `(${words.inLocalCurrency})`, { fontSize: 48, ...soft, letterSpacingEm: -0.015 }, widthLimit, 54),
-    wrappedBlock(mark.placePrice.kind === 'priced' ? differenceFromVisitorWords(comparison, mark.placePrice.price, null) : '', { fontSize: 48, ...soft, letterSpacingEm: -0.015 }, widthLimit, 54),
-  ];
-}
-
-// The small print a price needs to be honest, at a size that still reads in a timeline.
-function qualifications(comparison: PriceComparison, marks: PriceLineMark[]): string[] {
-  const notes = marks.filter(mark => mark.tiedPlacesWords).map(mark => `${mark.placeName} ${mark.tiedPlacesWords} cost the same`);
-  if (marks.some(mark => salesTaxLabel(mark.placePrice) === 'Population-weighted average')) notes.push('US states: population-weighted average sales tax');
-  return notes;
-}
+const rolesWords = (roles: ComparisonRole[]) => roles.map((role, index) => (index ? roleWords[role].toLowerCase() : roleWords[role])).join(', ');
 
 export function shareCardSvg(comparison: PriceComparison, pictures: ShareCardPictures): string {
-  const { product, configuration, columns } = comparison;
-  const contentWidth = shareCardWidth - 2 * sideMargin, photoBoxSize = 124;
-  const cheapestPriceInUsDollars = comparison.prices[0].takeHomePriceInUsDollars;
+  const { product, configuration } = comparison;
+  const softStyle = (fontSize: number): TextStyle => ({ fontSize, fontWeight: 400, letterSpacingEm: -0.015, colour: softInkColour });
 
-  // The named places stand in price order, so the lines down to their prices never cross. A visitor's place with no price stands after the cheapest.
-  const onLine = priceLineMarks(comparison, 'countries', roleWordingOnShareCard).filter(mark => mark.roles.length);
-  const unpricedVisitor = columns.find(column => column.role === 'visitor' && !onLine.some(mark => mark.placeCode === column.placeCode));
-  const middlePrice = (mark: PriceLineMark) => (mark.lowestPriceInUsDollars + mark.highestPriceInUsDollars) / 2;
-  const named: PriceLineMark[] = [...onLine].sort((a, b) => middlePrice(a) - middlePrice(b));
-  if (unpricedVisitor) {
-    named.splice(1, 0, {
-      placeCode: unpricedVisitor.placeCode, placeName: placeName(comparison.snapshot, unpricedVisitor.placeCode), lowestPriceInUsDollars: NaN, highestPriceInUsDollars: NaN,
-      placePrice: unpricedVisitor.placePrice, roles: ['visitor'], roleWords: roleWordingOnShareCard.visitor, tiedPlacesWords: '',
-    });
-  }
+  // The product photo fills the left of the card on a tile of Apple's own backdrop grey, so photos Apple shot on grey sit in it seamlessly.
+  const tileSize = 600, tileLeft = sideMargin, tileTop = topOfContent, photoBoxSize = 500;
+  const photoLeft = tileLeft + (tileSize - photoBoxSize) / 2, photoTop = tileTop + (tileSize - photoBoxSize) / 2;
+  const textLeft = tileLeft + tileSize + 56, textRight = shareCardWidth - sideMargin, textWidthLimit = textRight - textLeft;
 
-  const titleStyle: TextStyle = { fontSize: 68, fontWeight: 700, letterSpacingEm: -0.03 };
-  const textWidthBesidePhoto = contentWidth - photoBoxSize - 40;
-  const title = textLine(product.productName, sideMargin, topOfContent, 78, { ...titleStyle, fontSize: Math.max(smallestFontSize, largestFontSizeThatFits(product.productName, titleStyle, textWidthBesidePhoto)) });
-  const specsStyle: TextStyle = { fontSize: smallestFontSize, fontWeight: 400, letterSpacingEm: -0.015, colour: softInkColour };
-  const specLines = wrappedLines(specLine(product, configuration), specsStyle, textWidthBesidePhoto), specsTop = topOfContent + 76, specLineHeight = 54;
-  const specsSvg = specLines.map((line, index) => textLine(line, sideMargin, specsTop + index * specLineHeight, specLineHeight, specsStyle)).join('');
-  const columnsTop = Math.max(specsTop + specLines.length * specLineHeight, topOfContent + photoBoxSize) + 12;
+  const titleStyle: TextStyle = { fontSize: 72, fontWeight: 700, letterSpacingEm: -0.03 };
+  const titleFontSize = Math.max(smallestFontSize, largestFontSizeThatFits(product.productName, titleStyle, textWidthLimit));
+  let svg = textLine(product.productName, textLeft, topOfContent, 82, { ...titleStyle, fontSize: titleFontSize });
+  const specsStyle = softStyle(smallestFontSize), specLineHeight = 56;
+  const specLines = wrappedLines(specLine(product, configuration), specsStyle, textWidthLimit);
+  specLines.forEach((line, index) => { svg += textLine(line, textLeft, topOfContent + 84 + index * specLineHeight, specLineHeight, specsStyle); });
 
-  const noteStyle: TextStyle = { fontSize: smallestFontSize, fontWeight: 400, letterSpacingEm: -0.015, colour: softInkColour };
-  const noteLines = qualifications(comparison, named).flatMap(note => wrappedLines(note, noteStyle, contentWidth)), noteLineHeight = 54;
-  const footerTop = footerBaseline - 50, notesTop = footerTop - 4 - noteLines.length * noteLineHeight;
+  const rows = cardRows(comparison);
+  const rowsTop = topOfContent + 84 + specLines.length * specLineHeight + 24, rowsBottom = footerBaseline - 80;
+  const rowHeight = (rowsBottom - rowsTop) / rows.length;
+  const flagHeight = Math.min(64, rowHeight - 50), flagWidth = flagHeight * 1.5, nameLeft = textLeft + flagWidth + 24;
 
-  const columnWidth = contentWidth / named.length, columnTextWidthLimit = columnWidth - 20;
-  const blocksByColumn = named.map(mark => columnBlocks(comparison, mark, columnTextWidthLimit));
-  const blockHeights = blocksByColumn[0].map((_, blockIndex) => Math.max(...blocksByColumn.map(blocks => blocks[blockIndex].lines.length * blocks[blockIndex].lineHeight)));
-  // A place with no price says so in one block that may run over the empty ones beneath it.
-  const tallestText = Math.max(blockHeights.reduce((sum, height) => sum + height, 0), ...blocksByColumn.map(blocks => blocks.reduce((sum, block) => sum + block.lines.length * block.lineHeight, 0)));
+  rows.forEach((row, index) => {
+    const top = rowsTop + index * rowHeight;
+    if (index) svg += `<rect x="${textLeft}" y="${(top - 1).toFixed(1)}" width="${textWidthLimit}" height="2" fill="${inkColour}" fill-opacity="0.1"/>`;
+    svg += flag(pictures, row.placeCode, textLeft, top + 16, flagHeight);
+    svg += textLine(rolesWords(row.roles), nameLeft, top + 6, 52, softStyle(smallestFontSize));
+    const name = placeName(comparison.snapshot, row.placeCode);
+    const nameStyle: TextStyle = { fontSize: Math.max(smallestFontSize, largestFontSizeThatFits(name, { fontSize: 56, fontWeight: 600 }, 360)), fontWeight: 600, letterSpacingEm: -0.02 };
+    svg += textLine(name, nameLeft, top + 56, 60, nameStyle);
+    const nameRight = nameLeft + Math.max(textWidth(name, nameStyle), textWidth(rolesWords(row.roles), softStyle(smallestFontSize)));
 
-  // Whatever height is left goes to the flags. When that would make them small, the round amounts under the line give way first:
-  // the named places' own prices already label it.
-  const bandHeight = 16, heightForFlags = (stemsHeight: number, ticksHeight: number) => notesTop - columnsTop - 8 - tallestText - 6 - stemsHeight - bandHeight - ticksHeight;
-  const hasTicks = heightForFlags(44, 60) >= 60;
-  const stemsHeight = hasTicks || heightForFlags(44, 14) >= 60 ? 44 : 30, ticksHeight = hasTicks ? 60 : 14;
-  const flagHeight = Math.max(40, Math.min(92, heightForFlags(stemsHeight, ticksHeight)));
-  const flagWidth = flagHeight * 1.5, textTop = columnsTop + flagHeight + 8;
-  const stemsTop = textTop + tallestText + 6, bandTop = stemsTop + stemsHeight;
-
-  const scale = priceLineScale(priceLineMarks(comparison, 'countries', roleWordingOnShareCard), contentWidth, 12);
-  const positionOnCard = (priceInUsDollars: number) => sideMargin + scale.positionOf(priceInUsDollars);
-  let columnsSvg = '', stemsSvg = '';
-  named.forEach((mark, index) => {
-    const isLastOfSeveral = index === named.length - 1 && named.length > 1;
-    const anchor: TextAnchor = isLastOfSeveral ? 'end' : 'start';
-    const textX = isLastOfSeveral ? shareCardWidth - sideMargin : sideMargin + index * columnWidth;
-    const flagLeft = isLastOfSeveral ? textX - flagWidth : textX;
-    columnsSvg += flag(pictures, mark.placeCode, flagLeft, columnsTop, flagHeight);
-    const hasNoPrice = Number.isNaN(mark.lowestPriceInUsDollars);
-    let blockTop = textTop;
-    blocksByColumn[index].forEach((block, blockIndex) => {
-      block.lines.forEach((line, lineIndex) => { columnsSvg += textLine(line, textX, blockTop + lineIndex * block.lineHeight, block.lineHeight, block.style, anchor); });
-      blockTop += hasNoPrice && blockIndex >= 2 ? block.lines.length * block.lineHeight : blockHeights[blockIndex];
-    });
-    if (hasNoPrice) return;
-    const lowest = positionOnCard(mark.lowestPriceInUsDollars), highest = positionOnCard(mark.highestPriceInUsDollars), middle = (lowest + highest) / 2;
-    const stemStart = flagLeft + flagWidth / 2;
-    stemsSvg += `<path d="M${stemStart.toFixed(1)} ${stemsTop}V${stemsTop + 6}L${middle.toFixed(1)} ${bandTop - 12}V${bandTop + bandHeight + 6}" fill="none" stroke="${inkColour}" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>`;
-    // The United States or Canada as a whole is a span, not a point.
-    if (highest - lowest > 4) stemsSvg += `<path d="M${lowest.toFixed(1)} ${bandTop - 12}H${highest.toFixed(1)}M${lowest.toFixed(1)} ${bandTop - 20}v16M${highest.toFixed(1)} ${bandTop - 20}v16" fill="none" stroke="${inkColour}" stroke-width="4" stroke-linecap="round"/>`;
-    else stemsSvg += `<circle cx="${middle.toFixed(1)}" cy="${bandTop + bandHeight / 2}" r="9" fill="${paperColour}" stroke="${inkColour}" stroke-width="4"/>`;
+    const words = priceWords(comparison, row.placePrice, { shortenMillions: true });
+    if (!words) {
+      const unpriced = unpricedWordsOnShareCard(row.placePrice);
+      const unpricedStyle: TextStyle = { fontSize: smallestFontSize, fontWeight: 600, letterSpacingEm: -0.015 };
+      wrappedLines(unpriced, unpricedStyle, textRight - nameRight - 32).forEach((line, lineIndex) => {
+        svg += textLine(line, textRight, top + 8 + lineIndex * 54, 54, unpricedStyle, 'end');
+      });
+      return;
+    }
+    const amountStyle: TextStyle = { fontSize: 80, fontWeight: 700, letterSpacingEm: -0.04 };
+    svg += textLine(words.inDisplayCurrency, textRight, top + 2, 84, { ...amountStyle, fontSize: Math.max(smallestFontSize, largestFontSizeThatFits(words.inDisplayCurrency, amountStyle, 470)) }, 'end');
+    const difference = row.placePrice.kind === 'priced' && !row.roles.includes('visitor') ? differenceFromVisitorWords(comparison, row.placePrice.price, null) : '';
+    const smallPrint = [words.inLocalCurrency && `(${words.inLocalCurrency})`, difference, salesTaxLabel(row.placePrice) === 'Population-weighted average' ? 'population-weighted average' : ''].filter(Boolean).join(', ');
+    if (smallPrint) svg += textLine(smallPrint, textRight, top + 84, 52, softStyle(smallestFontSize), 'end');
   });
 
-  const gradientStops = Array.from({ length: 25 }, (_, step) => {
-    const priceInUsDollars = scale.lowestPriceInUsDollars + (scale.highestPriceInUsDollars - scale.lowestPriceInUsDollars) * step / 24;
-    return `<stop offset="${(scale.positionOf(priceInUsDollars) / contentWidth).toFixed(4)}" stop-color="${priceColour(priceInUsDollars, cheapestPriceInUsDollars)}"/>`;
-  }).join('');
-  const tickStyle: TextStyle = { fontSize: smallestFontSize, fontWeight: 400, letterSpacingEm: -0.015, colour: softInkColour };
-  const ticksSvg = !hasTicks ? '' : priceLineTicks(comparison, scale, 4).map(tick => {
-    const x = sideMargin + tick.position, halfWidth = textWidth(tick.words, tickStyle) / 2;
-    if (x - halfWidth < sideMargin || x + halfWidth > shareCardWidth - sideMargin) return '';
-    return `<rect x="${(x - 1.5).toFixed(1)}" y="${bandTop + bandHeight}" width="3" height="8" fill="${softInkColour}"/>${textLine(tick.words, x - halfWidth, bandTop + bandHeight + 8, 50, tickStyle)}`;
-  }).join('');
-  const notesSvg = noteLines.map((note, index) => textLine(note, sideMargin, notesTop + index * noteLineHeight, noteLineHeight, noteStyle)).join('');
-
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${shareCardWidth}" height="${shareCardHeight}" viewBox="0 0 ${shareCardWidth} ${shareCardHeight}">
-<defs><linearGradient id="price-colours" x1="0" x2="1" y1="0" y2="0">${gradientStops}</linearGradient></defs>
 <rect width="${shareCardWidth}" height="${shareCardHeight}" fill="${paperColour}"/>
-${title}${specsSvg}${productPhoto(pictures, shareCardWidth - sideMargin, topOfContent, photoBoxSize)}
-${columnsSvg}
-<rect x="${sideMargin}" y="${bandTop}" width="${contentWidth}" height="${bandHeight}" rx="${bandHeight / 2}" fill="url(#price-colours)"/>
-${stemsSvg}${ticksSvg}${notesSvg}
-${textLine('appleprices.jjpcodes.com', sideMargin, footerTop, 50, { fontSize: smallestFontSize, fontWeight: 600, letterSpacingEm: -0.02 })}
-${textLine('slopped up by @jjpcodes', shareCardWidth - sideMargin, footerTop, 50, { fontSize: smallestFontSize, fontWeight: 400, letterSpacingEm: -0.02, colour: softInkColour }, 'end')}
+<rect x="${tileLeft}" y="${tileTop}" width="${tileSize}" height="${tileSize}" rx="40" fill="${photoTileColour}"/>
+${productPhoto(pictures, photoLeft, photoTop, photoBoxSize)}
+${svg}
+${textLine('appleprices.jjpcodes.com', sideMargin, footerBaseline - 50, 50, { fontSize: smallestFontSize, fontWeight: 600, letterSpacingEm: -0.02 })}
+${textLine('slopped up by @jjpcodes', textRight, footerBaseline - 50, 50, { fontSize: smallestFontSize, fontWeight: 400, letterSpacingEm: -0.02, colour: softInkColour }, 'end')}
 </svg>`;
 }
 

@@ -12,7 +12,7 @@ export type ProductPhotos = Record<string, { usualPhoto: ProductPhoto; photoByCo
 export const appleImageServer = 'https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/';
 export const productPhotoPixels = 800;
 // The copies in assets/product-photos for the share card: Apple's whole canvas, small, on the card's paper colour.
-export const shareCardPhotoPixels = 320;
+export const shareCardPhotoPixels = 560;
 export const shareCardPaperColour = '#fbfbfd';
 
 // Apple's server draws the photo at any size asked for; the product box is always measured on the full canvas of productPhotoPixels.

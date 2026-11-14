@@ -67,7 +67,7 @@ async function measurePhoto(imageName: string): Promise<ProductPhoto> {
   const otherCorners = [pixelAt(paintedBox[2] - 3, paintedBox[1] + 2), pixelAt(paintedBox[0] + 2, paintedBox[3] - 3), pixelAt(paintedBox[2] - 3, paintedBox[3] - 3)];
   const onOpaqueBackdrop = isOpaque(backdrop) && otherCorners.every(corner => isOpaque(corner) && colourDifference(backdrop, corner) < 8);
   const [left, top, right, bottom] = onOpaqueBackdrop ? boxAround(pixel => colourDifference(pixel, backdrop) > 24, paintedBox) : paintedBox;
-  const smallPhoto = await fetch(`${appleImageServer}${imageName}?wid=${shareCardPhotoPixels}&hei=${shareCardPhotoPixels}&fmt=jpeg&qlt=85&bgc=0x${shareCardPaperColour.slice(1)}`);
+  const smallPhoto = await fetch(`${appleImageServer}${imageName}?wid=${shareCardPhotoPixels}&hei=${shareCardPhotoPixels}&fmt=jpeg&qlt=80&bgc=0x${shareCardPaperColour.slice(1)}`);
   if (!smallPhoto.ok) throw new Error(`Apple has no small photo ${imageName}: ${smallPhoto.status}`);
   await writeFile(`assets/product-photos/${imageName}.jpg`, Buffer.from(await smallPhoto.arrayBuffer()));
   console.log(imageName.padEnd(64), onOpaqueBackdrop ? 'backdrop' : 'cut out ', [left, top, right, bottom].join(','));
