@@ -1,46 +1,65 @@
-import opentype from 'opentype.js';
-import { zlibSync } from 'fflate';
+import { Resvg, initWasm } from '@resvg/resvg-wasm';
+import resvgModule from './resvg.wasm';
 
-const font = opentype.parse(Uint8Array.from(atob(FONT_DATA), c => c.charCodeAt(0)).buffer);
-const snapshot = Uint8Array.from(atob(SNAPSHOT_DATA), c => c.charCodeAt(0));
-const width = 1600, height = 900;
-const encoder = new TextEncoder();
-function crc32(bytes) {
-  let crc = -1;
-  for (const byte of bytes) { crc ^= byte; for (let i = 0; i < 8; i++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1)); }
-  return (crc ^ -1) >>> 0;
+// WEB_ASSETS (path -> { contentType, etag, gzippedBase64 }) and SHARE_CARD_FONT_BASE64 are filled in by hosting/build.mjs.
+const webAssets = WEB_ASSETS;
+
+const bytesFromBase64 = base64 => Uint8Array.from(atob(base64), character => character.charCodeAt(0));
+const shareCardFont = bytesFromBase64(SHARE_CARD_FONT_BASE64);
+let resvgReady;
+
+async function renderPng(svg) {
+  resvgReady ??= initWasm(resvgModule);
+  await resvgReady;
+  return new Resvg(svg, { font: { fontBuffers: [shareCardFont], defaultFontFamily: 'DejaVu Sans', loadSystemFonts: false } }).render().asPng();
 }
-function chunk(type, data) {
-  const name = encoder.encode(type), result = new Uint8Array(data.length + 12), view = new DataView(result.buffer);
-  view.setUint32(0, data.length); result.set(name, 4); result.set(data, 8); view.setUint32(data.length + 8, crc32(result.subarray(4, data.length + 8))); return result;
+
+async function applePhotoAsDataUrl(appleImageUrl) {
+  const response = await fetch(`${appleImageUrl}?wid=700&hei=700&fmt=png-alpha`, { cf: { cacheTtl: 86400 } });
+  if (!response.ok) throw new Error(`Apple image ${response.status}`);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  let binary = '';
+  for (let index = 0; index < bytes.length; index += 0x8000) binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  return `data:image/png;base64,${btoa(binary)}`;
 }
-function render(text) {
-  const pixels = new Uint8Array((width * 3 + 1) * height).fill(255);
-  for (let y = 0; y < height; y++) pixels[y * (width * 3 + 1)] = 0;
-  const edges = []; let x = 0, y = 0, startX = 0, startY = 0;
-  function line(nx, ny) { if (y !== ny) edges.push([x, y, nx, ny]); x = nx; y = ny; }
-  for (const c of font.getPath(text.slice(0, 80), 80, 475, 72).commands) {
-    if (c.type === 'M') { x = startX = c.x; y = startY = c.y; }
-    else if (c.type === 'L') line(c.x, c.y);
-    else if (c.type === 'Q') { const ox = x, oy = y; for (let i = 1; i <= 12; i++) { const t = i / 12, s = 1 - t; line(s*s*ox + 2*s*t*c.x1 + t*t*c.x, s*s*oy + 2*s*t*c.y1 + t*t*c.y); } }
-    else if (c.type === 'C') { const ox = x, oy = y; for (let i = 1; i <= 12; i++) { const t = i / 12, s = 1 - t; line(s*s*s*ox + 3*s*s*t*c.x1 + 3*s*t*t*c.x2 + t*t*t*c.x, s*s*s*oy + 3*s*s*t*c.y1 + 3*s*t*t*c.y2 + t*t*t*c.y); } }
-    else if (c.type === 'Z') line(startX, startY);
-  }
-  for (let row = 0; row < height; row++) {
-    const crossings = [];
-    for (const [x1, y1, x2, y2] of edges) if ((y1 <= row + .5 && y2 > row + .5) || (y2 <= row + .5 && y1 > row + .5)) crossings.push(x1 + (row + .5 - y1) * (x2 - x1) / (y2 - y1));
-    crossings.sort((a, b) => a - b);
-    for (let i = 0; i + 1 < crossings.length; i += 2) for (let col = Math.max(0, Math.ceil(crossings[i])); col < Math.min(width, crossings[i + 1]); col++) { const offset = row * (width * 3 + 1) + 1 + col * 3; pixels[offset] = pixels[offset + 1] = pixels[offset + 2] = 20; }
-  }
-  const header = new Uint8Array(13), headerView = new DataView(header.buffer); headerView.setUint32(0, width); headerView.setUint32(4, height); header[8] = 8; header[9] = 2;
-  const parts = [new Uint8Array([137,80,78,71,13,10,26,10]), chunk('IHDR', header), chunk('IDAT', zlibSync(pixels)), chunk('IEND', new Uint8Array())];
-  const png = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0)); let offset = 0; for (const part of parts) { png.set(part, offset); offset += part.length; } return png;
+
+const escapeXml = text => text.replace(/[<>&"]/g, character => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[character]);
+
+async function shareTestSvg(url) {
+  const photo = await applePhotoAsDataUrl('https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-17-finish-select-mistblue-202509');
+  const line = (y, size, weight, text, fill = '#111') => `<text x="760" y="${y}" font-size="${size}" font-weight="${weight}" fill="${fill}">${escapeXml(text)}</text>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+    <rect width="1600" height="900" fill="#f5f5f7"/>
+    <image href="${photo}" x="60" y="100" width="640" height="640"/>
+    ${line(170, 64, 700, url.searchParams.get('text') || 'iPhone 17 · 256GB')}
+    ${line(300, 44, 400, 'Cheapest: Oregon $929 (€841)', '#1a7f37')}
+    ${line(380, 44, 400, 'You: Netherlands €969 ($1,071)')}
+    ${line(460, 44, 400, 'Most expensive: Türkiye ₺76.999 ($1,912)', '#c0392b')}
+    ${line(540, 36, 400, '₹ ₩ ¥ £ ₫ ₺ € $ — Prices in occupied Palestine not known')}
+    ${line(820, 32, 400, 'appleprices.jjpcodes.com · slopped up by @jjpcodes', '#555')}
+  </svg>`;
 }
-export default { async fetch(request) {
-  const url = new URL(request.url);
-  if (url.pathname === '/api/whereami') return Response.json({country: request.cf?.country ?? request.headers.get('CF-IPCountry') ?? null, region: request.cf?.region ?? null, regionCode: request.cf?.regionCode ?? null}, {headers: {'Cache-Control': 'no-store'}});
-  if (url.pathname === '/api/share-test.png') { const png = render(url.searchParams.get('text') || 'Apple Prices'); return new Response(png, {headers: {'Content-Type': 'image/png', 'Cache-Control': 'no-store'}}); }
-  if (url.pathname === '/data/test.binpb') return new Response(snapshot, {headers: {'Content-Type': 'application/protobuf', 'Cache-Control': 'public, max-age=3600'}});
-  if (url.pathname === '/') return new Response('Apple Prices — coming soon.', {headers: {'Content-Type': 'text/plain; charset=utf-8'}});
-  return new Response('Not found', {status: 404});
-} };
+
+function serveWebAsset(request, asset) {
+  const headers = { 'Content-Type': asset.contentType, 'Content-Encoding': 'gzip', ETag: asset.etag, 'Cache-Control': 'public, max-age=3600' };
+  if (request.headers.get('If-None-Match') === asset.etag) return new Response(null, { status: 304, headers });
+  return new Response(bytesFromBase64(asset.gzippedBase64), { headers, encodeBody: 'manual' });
+}
+
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+    if (url.pathname === '/api/whereami') {
+      return Response.json({ country: request.cf?.country ?? request.headers.get('CF-IPCountry') ?? null }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+    if (url.pathname === '/api/share-test.png') {
+      const started = Date.now();
+      const png = await renderPng(await shareTestSvg(url));
+      return new Response(png, { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'no-store', 'Server-Timing': `render;dur=${Date.now() - started}` } });
+    }
+    const asset = webAssets[url.pathname];
+    if (asset) return serveWebAsset(request, asset);
+    if (url.pathname === '/') return new Response('Apple Prices: coming soon.', { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+    return new Response('Not found', { status: 404 });
+  },
+};

@@ -14,7 +14,6 @@ import { configurationIdFromSpecs, specsFromLocalisedMacProductName, specsFromMa
 import { canadaCombinedSalesTaxPercent, canadaSalesTaxSource, unitedStatesCombinedSalesTaxPercent, unitedStatesSalesTaxSource, type SalesTaxSource } from './sales-tax-rates.ts';
 
 const snapshotFile = new URL('../data/price-snapshot.binpb', import.meta.url);
-const productImageDirectory = new URL('../data/product-images/', import.meta.url);
 
 type ScrapedShelfPrice = { productId: string; configurationId: string; specs: ProductSpecs; price: number; sourcePageUrl: string; applePartNumber: string };
 // notSold means Apple's store answered that it has no such product; an empty price list alone proves nothing.
@@ -155,19 +154,15 @@ async function productImageUrl(product: CatalogueProduct): Promise<string> {
   throw new Error(`No product image found for ${product.productId}`);
 }
 
-async function saveProductImages(): Promise<Map<string, string>> {
-  await mkdir(productImageDirectory, { recursive: true });
-  const imagePaths = new Map<string, string>();
+async function checkedProductImageUrls(): Promise<Map<string, string>> {
+  const imageUrls = new Map<string, string>();
   await forEachWithConcurrency(catalogueProducts, 2, async product => {
-    const response = await fetch(`${await productImageUrl(product)}?wid=800&hei=800&fmt=png-alpha`);
+    const imageUrl = await productImageUrl(product);
+    const response = await fetch(`${imageUrl}?wid=200&hei=200&fmt=png-alpha`);
     if (!response.ok || response.headers.get('content-type') !== 'image/png') throw new Error(`Apple's image for ${product.productId} is unavailable (HTTP ${response.status})`);
-    const imageFile = new URL(`${product.productId}.png`, productImageDirectory);
-    const image = Buffer.from(await response.arrayBuffer());
-    const existing = await readFile(imageFile).catch(() => null);
-    if (!existing?.equals(image)) await writeFile(imageFile, image);
-    imagePaths.set(product.productId, `/data/product-images/${product.productId}.png`);
+    imageUrls.set(product.productId, imageUrl);
   });
-  return imagePaths;
+  return imageUrls;
 }
 
 // Macau has no online store, but Apple's Macau product pages state starting prices. Apple prices Macau like Hong Kong,
@@ -242,7 +237,7 @@ function problemsComparedWithPreviousSnapshot(previousSnapshot: PriceSnapshot | 
 async function main() {
   const exchangeRates = await fetchExchangeRates();
   const unitsPerUsDollar = new Map(exchangeRates.rates.map(rate => [rate.currencyCode, rate.unitsPerUsDollar]));
-  const productImagePaths = await saveProductImages();
+  const productImageUrls = await checkedProductImageUrls();
 
   const results: StoreResult[] = [];
   const scrapeStore = async (store: AppleOnlineStore) => {
@@ -305,7 +300,7 @@ async function main() {
       productId: product.productId,
       productName: product.productName,
       category: product.category,
-      productImagePath: productImagePaths.get(product.productId),
+      appleImageUrl: productImageUrls.get(product.productId),
       configurations: [...configurationsByProduct.get(product.productId)!.entries()]
         .sort(([idA, a], [idB, b]) => a.sortPriceInUsDollars - b.sortPriceInUsDollars || idA.localeCompare(idB))
         .map(([configurationId, { specs }]) => create(ProductConfigurationSchema, { configurationId, specs })),

@@ -4,7 +4,7 @@ A world map of Apple hardware prices, including tax.
 
 ## Data
 
-`data/price-snapshot.binpb` is one `PriceSnapshot` (see `proto/apple_prices/v1/price_snapshot.proto`): every flagship Apple product's standard configurations and their prices in Apple's 40 online stores, Macau's published base prices, US state and Canadian provincial sales tax, California's recycling fee, and exchange rates. `src/take-home-prices.ts` turns it into what you pay with tax in each country, state or province. Product images are in `data/product-images/`.
+`data/price-snapshot.binpb` is one `PriceSnapshot` (see `proto/apple_prices/v1/price_snapshot.proto`): every flagship Apple product's standard configurations and their prices in Apple's 40 online stores, Macau's published base prices, US state and Canadian provincial sales tax, California's recycling fee, and exchange rates. `src/take-home-prices.ts` turns it into what you pay with tax in each country, state or province. Product photos come from Apple's image server; the snapshot holds each product's image address.
 
 Prices come only from Apple's own pages. US sales tax is the Tax Foundation's population-weighted average of state and local rates (mid-2026); Canadian tax is the Canada Revenue Agency's GST/HST plus provincial sales tax. Canadian provincial recycling fees are not included.
 
@@ -25,7 +25,7 @@ The public ChatGPT Site is identified by `.openai/hosting.json`. DNS is managed 
 From a clean checkout after committing changes, install dependencies and build using the project environment:
 
 ```sh
-devenv shell -- sh -c 'cd hosting && npm ci'
+devenv shell -- npm ci
 devenv shell -- node hosting/build.mjs
 ```
 

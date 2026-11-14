@@ -73,11 +73,11 @@ export declare type Product = Message<"apple_prices.v1.Product"> & {
   category: ProductCategory;
 
   /**
-   * Site path of Apple's product image, e.g. /data/product-images/iphone-17.png.
+   * Apple's image server address for the product photo, without size options; add e.g. ?wid=800&hei=800&fmt=png-alpha.
    *
-   * @generated from field: string product_image_path = 4;
+   * @generated from field: string apple_image_url = 4;
    */
-  productImagePath: string;
+  appleImageUrl: string;
 
   /**
    * The base model comes first.
