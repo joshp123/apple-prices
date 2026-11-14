@@ -70,6 +70,7 @@ export function shareDialogHtml(view: PageView): string {
         <div class="share-actions">
           <a class="control control-primary" id="post-on-x" href="${escapeHtml(postOnXLink(view, text))}" target="_blank" rel="noopener">Post on X</a>
           ${actionButton('Copy link', 'data-action="copy-share-link"')}
+          ${actionButton('Copy picture', 'data-action="copy-share-card"')}
           <a class="control" href="${escapeHtml(cardPath)}" download="apple-prices-${view.state.productId}.png">Save picture</a>
         </div>
         <p class="share-status" role="status"></p>

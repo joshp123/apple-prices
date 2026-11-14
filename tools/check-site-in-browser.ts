@@ -251,6 +251,9 @@ async function journeyByMouse(): Promise<void> {
   check('the picture in the dialog is the Worker’s card', await page.locator('.share-card').evaluate(async (image: HTMLImageElement) => { await image.decode(); return image.naturalWidth === 1600; }));
   await page.getByRole('button', { name: 'Copy link' }).click();
   check('Copy link puts the link on the clipboard', await page.evaluate(() => navigator.clipboard.readText()) === shareAddress);
+  await page.getByRole('button', { name: 'Copy picture' }).click();
+  await page.locator('.share-status', { hasText: 'Picture copied.' }).waitFor();
+  check('Copy picture puts the card on the clipboard', await page.evaluate(async () => (await navigator.clipboard.read())[0].types.includes('image/png')));
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('link', { name: 'Save picture' }).click()]);
   await download.saveAs(`${photographFolder}/downloaded-share-card.png`);
   check('Save picture downloads a PNG', download.suggestedFilename() === 'apple-prices-iphone-18-pro.png');

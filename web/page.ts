@@ -4,7 +4,7 @@ import type { UiPopoverElement } from '@ui-sdk/web';
 import { PriceSnapshotSchema, type PriceSnapshot } from '../src/generated/apple_prices/v1/price_snapshot_pb.js';
 import { countryCodeOf, isKnownPlaceCode, placeCodeForCountryCode, placeName, placeNameAfterIn } from '../src/places.ts';
 import { canCompareWith, priceComparison, type PriceComparison } from '../src/price-comparison.ts';
-import { selectionFromShareLink, shareLinkPath } from '../src/share-link.ts';
+import { selectionFromShareLink, shareCardPath, shareLinkPath } from '../src/share-link.ts';
 import { specLine } from '../src/spec-words.ts';
 import { answerHtml, drawAnswer, placeListHtml, placePicker, type PlacePickerPurpose } from './answer.ts';
 import { isPhoneWidth, roleWordingOnPage, type PageState, type PageView } from './page-view.ts';
@@ -211,6 +211,11 @@ document.addEventListener('click', event => {
       return void navigator.clipboard.writeText(shareLink(view())).then(
         () => { element('.share-status').textContent = 'Link copied.'; },
         () => { element('.share-status').textContent = 'This browser did not allow copying. Select the link above instead.'; });
+    // Safari copies an image only when the clipboard is given the promise of it during the click, not the image after it loads.
+    case 'copy-share-card':
+      return void navigator.clipboard.write([new ClipboardItem({ 'image/png': fetch(shareCardPath(state)).then(response => response.blob()) })]).then(
+        () => { element('.share-status').textContent = 'Picture copied.'; },
+        () => { element('.share-status').textContent = 'This browser did not allow copying the picture. Use Save picture instead.'; });
   }
 });
 
