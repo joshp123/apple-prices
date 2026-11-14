@@ -9,7 +9,7 @@ The public ChatGPT Site is identified by `.openai/hosting.json`. DNS is managed 
 From a clean checkout after committing changes, install dependencies and build using the project environment:
 
 ```sh
-devenv shell -- npm ci --prefix hosting
+devenv shell -- sh -c 'cd hosting && npm ci'
 devenv shell -- node hosting/build.mjs
 ```
 
