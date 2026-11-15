@@ -121,6 +121,7 @@ const shareCards: [string, string][] = [
   ['card-11-macbook-pro-california-and-united-kingdom', '/macbook-pro/14in-m6-12cpu-12gpu-16gb-memory-1000gb-standard-glass.png?me=US-CA&vs=GB'],
   ['card-12-longest-place-names', `${topMacBookPro}.png?me=CA-NT&vs=AE&in=EUR`],
   ['card-13-range-against-a-province-in-yen', '/ipad-pro/13in-2000gb-wi-fi-cellular-nano-texture-glass.png?me=US&vs=CA-NT&in=JPY'],
+  ['card-14-mac-studio-netherlands-and-california', '/mac-studio/m5-ultra-30cpu-64gpu-96gb-memory-1000gb.png?me=NL&vs=US-CA'],
 ];
 
 const failures: string[] = [];
@@ -167,10 +168,11 @@ async function photographEveryState(): Promise<void> {
   }
 }
 
-// Both shapes of each card, then the ways a phone's Twitter feed shows them, about 360 points wide: the link's preview, the picture
-// posted alone, and the picture first in a carousel of pictures, where a tile is about 262 points wide and 20:17.
+// Both shapes of each card, then the ways a phone's Twitter feed shows them, about 360 points wide: the link's preview, trimmed to
+// 1.91:1 with the page's Twitter title laid over its bottom left corner; the picture posted alone; and the picture first in a
+// carousel of pictures, where a tile is about 262 points wide and 20:17.
 async function photographShareCards(): Promise<void> {
-  const context = await browser.newContext({ viewport: { width: 360, height: 900 }, deviceScaleFactor: 2 });
+  const context = await browser.newContext({ viewport: { width: 360, height: 900 }, deviceScaleFactor: 3 });
   for (const [name, address] of shareCards) {
     if (!name.includes(onlyNamesContaining)) continue;
     const dataUrls: Record<string, string> = {};
@@ -180,12 +182,14 @@ async function photographShareCards(): Promise<void> {
       await writeFile(`${photographFolder}/${name}-${shape}.png`, bytes);
       dataUrls[shape] = `data:image/png;base64,${bytes.toString('base64')}`;
     }
-    const frame = (style: string, dataUrl: string) => `<div style="${style};border-radius:12px;overflow:hidden;border:1px solid #cfd9de"><img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;display:block"></div>`;
+    const twitterTitle = (await (await fetch(siteAddress + address.replace('.png', ''))).text()).match(/<meta name="twitter:title" content="([^"]*)">/)![1];
+    const frame = (style: string, dataUrl: string, laidOver = '') => `<div style="${style};position:relative;border-radius:16px;overflow:hidden;border:1px solid #cfd9de"><img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;display:block">${laidOver}</div>`;
+    const titleLaidOver = `<div style="position:absolute;left:12px;right:12px;bottom:12px;display:flex"><span style="background:rgba(0,0,0,0.77);color:#fff;border-radius:4px;padding:0 4px;font:13px/20px system-ui;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${twitterTitle}</span></div>`;
     const page = await context.newPage();
     await page.setContent(`<body style="margin:0;padding:12px;font:13px system-ui;color:#536471;display:grid;gap:8px;width:336px">
-      Link preview${frame('aspect-ratio:1.91', dataUrls['share-card'])}
+      Link preview${frame('aspect-ratio:1.91', dataUrls['share-card'], titleLaidOver)}
       Picture posted alone${frame('aspect-ratio:20/17', dataUrls['post-picture'])}
-      First picture of two<div style="display:flex;gap:6px;overflow:hidden">${frame('flex:none;width:262px;aspect-ratio:20/17', dataUrls['post-picture'])}<div style="flex:none;width:120px;background:#cfd9de;border-radius:12px"></div></div></body>`);
+      First picture of two<div style="display:flex;gap:6px;overflow:hidden">${frame('flex:none;width:262px;aspect-ratio:20/17', dataUrls['post-picture'])}<div style="flex:none;width:120px;background:#cfd9de;border-radius:16px"></div></div></body>`);
     await page.screenshot({ path: `${photographFolder}/${name}-in-twitter.png`, fullPage: true });
     await page.close();
   }

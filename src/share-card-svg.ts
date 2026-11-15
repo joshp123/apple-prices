@@ -1,8 +1,10 @@
-// The share card as an SVG of text, rectangles and images, which the Worker turns into a PNG with resvg.
-// Most people meet the site as this picture in a timeline about 400 pixels wide, so the sizes here are a quarter of what they look like.
+// The two share cards as SVGs of text, rectangles and images, which the Worker turns into PNGs with resvg.
+// Most people meet the site as one of these in a phone's Twitter timeline, at a fifth or a sixth of its size, so the type is that much
+// larger than it looks: 50 pixels here is 8 points there.
 import interAdvanceWidths from '../assets/fonts/inter-advance-widths.json' with { type: 'json' };
 import { countryCodeOf, isStateOrProvince, placeName } from './places.ts';
-import { differenceFromVisitorWords, priceWords, unpricedWordsOnShareCard, type ComparisonColumn, type ComparisonRole, type PriceComparison } from './price-comparison.ts';
+import { priceWords, unpricedWordsOnShareCard, type ComparisonColumn, type ComparisonRole, type PriceComparison } from './price-comparison.ts';
+import { priceColour } from './price-colour.ts';
 import { productPhotoPixels, shareCardPaperColour, type ProductPhoto } from './product-photos.ts';
 import { specLine } from './spec-words.ts';
 
@@ -13,14 +15,9 @@ export type ShareCardPictures = {
   flagDataUrls: Record<string, string>;
 };
 
-// A link's preview is 2:1; Twitter may trim it to 1.91:1, so the sides keep a wide margin.
-export const shareCardWidth = 1800, shareCardHeight = 900;
 const sideMargin = 72;
-const paperColour = shareCardPaperColour, inkColour = '#1d1d1f', softInkColour = '#5f5f67', photoTileColour = '#f2f2f4';
-const topOfContent = 50, footerBelowBottom = 50;
-// In a timeline the card is about 400 pixels wide, a quarter of its size, so no line of it is set smaller than this: 12 pixels there.
-// Text that is too wide wraps; it never shrinks below this.
-const smallestFontSize = 48;
+const photoShareOfTile = 0.86;
+const paperColour = shareCardPaperColour, inkColour = '#1d1d1f', softInkColour = '#5f5f67', photoTileColour = '#f1f1f4';
 
 type FontWeight = 400 | 600 | 700;
 type TextStyle = { fontSize: number; fontWeight: FontWeight; letterSpacingEm?: number; colour?: string };
@@ -42,11 +39,12 @@ function largestFontSizeThatFits(text: string, style: TextStyle, widthLimit: num
   return Math.min(style.fontSize, Math.floor(style.fontSize * widthLimit / textWidth(text, style)));
 }
 
-function wrappedLines(text: string, style: TextStyle, widthLimit: number): string[] {
+// The width limit may differ by line: the first line of a link preview's specs is shorter than the rest.
+function wrappedLines(text: string, style: TextStyle, widthLimitOfLine: (lineIndex: number) => number): string[] {
   const lines: string[] = [];
   for (const word of text.split(' ')) {
     const longerLine = lines.length ? `${lines[lines.length - 1]} ${word}` : word;
-    if (lines.length && textWidth(longerLine, style) <= widthLimit) lines[lines.length - 1] = longerLine;
+    if (lines.length && textWidth(longerLine, style) <= widthLimitOfLine(lines.length - 1)) lines[lines.length - 1] = longerLine;
     else lines.push(word);
   }
   return lines;
@@ -114,165 +112,179 @@ function cardRows(comparison: PriceComparison): CardRow[] {
 
 const rolesWords = (roles: ComparisonRole[]) => roles.map((role, index) => (index ? roleWords[role].toLowerCase() : roleWords[role])).join(', ');
 
-// The card reads top to bottom: the product and its whole configuration across the card, then the photo beside one row per place.
-// Every row has the same two lines at the same height: the role and the price; then the place's name, its local money and its
-// difference from me, each in a column of its own, so every detail stands where the eye expects it. When the columns need more
-// width the photo gives it up; legible prices come before a large photo.
-const titleStyle: TextStyle = { fontSize: 68, fontWeight: 700, letterSpacingEm: -0.03 };
-const softStyle: TextStyle = { fontSize: smallestFontSize, fontWeight: 400, letterSpacingEm: -0.015, colour: softInkColour };
-const amountStyle: TextStyle = { fontSize: 64, fontWeight: 700, letterSpacingEm: -0.035 };
-const nameStyle: TextStyle = { fontSize: 54, fontWeight: 600, letterSpacingEm: -0.02 };
-const unpricedStyle: TextStyle = { fontSize: smallestFontSize, fontWeight: 600, letterSpacingEm: -0.015 };
-const titleLineHeight = 76, specLineHeight = 52, gapBelowSpecs = 24, gapBesidePhoto = 48, footerAboveBodyBottom = 58;
-const priceLine = 58, detailLine = 54, largestRowPadding = 18;
-const flagHeight = 52, flagWidth = flagHeight * 1.5, flagGap = 24, columnGap = 36;
-const largestPhotoTile = 600, smallestPhotoTile = 200;
-
 const withSize = (style: TextStyle, fontSize: number): TextStyle => ({ ...style, fontSize });
-const fitted = (text: string, style: TextStyle, widthLimit: number) => withSize(style, Math.max(smallestFontSize, largestFontSizeThatFits(text, style, widthLimit)));
-const baselineOf = (lineTop: number, lineHeight: number, style: TextStyle) => lineTop + (lineHeight + style.fontSize * interCapitalHeightEm) / 2;
+const fitted = (text: string, style: TextStyle, widthLimit: number, smallestFontSize: number) => withSize(style, Math.max(smallestFontSize, largestFontSizeThatFits(text, style, widthLimit)));
 function textOnBaseline(text: string, x: number, baseline: number, style: TextStyle, anchor: TextAnchor = 'start'): string {
   return textLine(text, x, baseline - style.fontSize * interCapitalHeightEm, style.fontSize * interCapitalHeightEm, style, anchor);
 }
 
+// The grey tile that holds Apple's photo. Every product gets the same tile, whether Apple shot it on white, on grey or cut out.
+function photoTile(pictures: ShareCardPictures, left: number, top: number, width: number, height: number, photoAboveMiddle = 0): string {
+  const [productLeft, productTop, productRight, productBottom] = pictures.productPhoto.productBox;
+  // productPhoto fits the product into a square, so the square is as large as lets the product fill the tile to its margin.
+  const productWidth = productRight - productLeft, productHeight = productBottom - productTop, longerSide = Math.max(productWidth, productHeight);
+  const photoSize = Math.min(width * photoShareOfTile * longerSide / productWidth, (height - photoAboveMiddle * 2) * photoShareOfTile * longerSide / productHeight);
+  return `<rect x="${left}" y="${top}" width="${width}" height="${height}" rx="${Math.min(width, height) / 12}" fill="${photoTileColour}"/>`
+    + productPhoto(pictures, left + (width - photoSize) / 2, top + (height - photoSize) / 2 - photoAboveMiddle, photoSize);
+}
+
+// The two halves of a sentence too long for one line, as near the same width as the two widths allow, or nothing when it cannot fit.
+function twoLines(text: string, style: TextStyle, firstWidthLimit: number, secondWidthLimit: number): [string, string] | null {
+  const words = text.split(' ');
+  let best: [string, string] | null = null, bestDifference = Infinity;
+  for (let wordCount = 1; wordCount < words.length; wordCount++) {
+    const first = words.slice(0, wordCount).join(' '), second = words.slice(wordCount).join(' ');
+    const firstWidth = textWidth(first, style), secondWidth = textWidth(second, style);
+    if (firstWidth > firstWidthLimit || secondWidth > secondWidthLimit || Math.abs(firstWidth - secondWidth) >= bestDifference) continue;
+    best = [first, second];
+    bestDifference = Math.abs(firstWidth - secondWidth);
+  }
+  return best;
+}
+
 // One row's words, before any are placed.
-type RowWords = { row: CardRow; role: string; name: string; price: string; localMoney: string; difference: string; unpriced: string };
+type RowWords = { row: CardRow; role: string; name: string; price: string; isRange: boolean; localMoney: string; unpriced: string };
 
 function rowWords(comparison: PriceComparison, row: CardRow): RowWords {
   const words = priceWords(comparison, row.placePrice, { shortenMillions: true });
   return {
     row, role: rolesWords(row.roles), name: placeName(comparison.snapshot, row.placeCode),
-    price: words?.inDisplayCurrency ?? '', localMoney: words?.inLocalCurrency ? `(${words.inLocalCurrency})` : '',
-    difference: row.placePrice.kind === 'priced' && !row.roles.includes('visitor') ? differenceFromVisitorWords(comparison, row.placePrice.price, null) : '',
+    price: words?.inDisplayCurrency ?? '', isRange: row.placePrice.kind === 'priced-by-state-or-province', localMoney: words?.inLocalCurrency ? `(${words.inLocalCurrency})` : '',
     unpriced: words ? '' : unpricedWordsOnShareCard(row.placePrice),
   };
 }
 
-const widest = (texts: string[], style: TextStyle) => Math.max(0, ...texts.filter(Boolean).map(text => textWidth(text, style)));
+// The rows are the card: one per place, each the same. The flag stands at the left, as tall as the two lines beside it: what the
+// place is to me, then its name. The price stands at the right, the largest thing on the card, behind a dot of the colour the place
+// has on the site's map, with the price in the place's own money in brackets under it.
+// The type grows with the height a row gets, so a card with three places is set larger than a card with four. Every name is one
+// size and every price is one size: the largest at which the longest still fits. Only a range of prices (the United States with no
+// state) is set smaller than the others, because it is two prices long.
+type RowsBox = { left: number; right: number; top: number; bottom: number };
+const rowHeightAtFullSize = 200;
+const fullPriceSize = 112, fullNameSize = 82, fullSmallSize = 50, fullFlagHeight = 108;
+const priceStyle: TextStyle = { fontSize: fullPriceSize, fontWeight: 700, letterSpacingEm: -0.035 };
+const nameStyle: TextStyle = { fontSize: fullNameSize, fontWeight: 700, letterSpacingEm: -0.025 };
+const smallStyle: TextStyle = { fontSize: fullSmallSize, fontWeight: 400, letterSpacingEm: -0.01, colour: softInkColour };
+const dotRadiusEm = 0.17, dotGapEm = 0.2, dotWidthEm = dotRadiusEm * 2 + dotGapEm;
 
-export function shareCardSvg(comparison: PriceComparison, pictures: ShareCardPictures): string {
-  const { product, configuration } = comparison;
-  const width = shareCardWidth, height = shareCardHeight;
-  const textRight = width - sideMargin, fullWidth = textRight - sideMargin, footerBaseline = height - footerBelowBottom, bodyBottom = footerBaseline - footerAboveBodyBottom;
-  const title = fitted(product.productName, titleStyle, fullWidth);
-  const specLines = wrappedLines(specLine(product, configuration), softStyle, fullWidth);
-  const bodyTop = topOfContent + titleLineHeight + specLines.length * specLineHeight + gapBelowSpecs, bodyHeight = bodyBottom - bodyTop;
-
+function placeRows(comparison: PriceComparison, pictures: ShareCardPictures, box: RowsBox, largestScale: number, smallestSmallSize: number): string {
   const rows = cardRows(comparison).map(row => rowWords(comparison, row));
-  // The name column takes what the local money and difference columns leave; names shrink to the smallest size before the photo does.
-  const differenceColumn = widest(rows.map(row => row.difference), softStyle), localColumn = widest(rows.map(row => row.localMoney), softStyle);
-  const detailColumns = (localColumn ? localColumn + columnGap : 0) + (differenceColumn ? differenceColumn + columnGap : 0);
-  const narrowestName = widest(rows.map(row => row.name), withSize(nameStyle, smallestFontSize));
-  const narrowestPrice = Math.max(...rows.map(row => textWidth(row.role, softStyle) + columnGap + (row.price ? textWidth(row.price, withSize(amountStyle, smallestFontSize)) : textWidth(row.unpriced, unpricedStyle) / 2)));
-  const rowsNeed = flagWidth + flagGap + Math.max(narrowestName + detailColumns, narrowestPrice);
-  const rowHeight = priceLine + detailLine;
+  const rowHeight = (box.bottom - box.top) / rows.length, scale = Math.min(largestScale, rowHeight / rowHeightAtFullSize);
+  const small = withSize(smallStyle, Math.max(smallestSmallSize, Math.round(fullSmallSize * scale)));
+  const flagHeight = fullFlagHeight * scale, flagWidth = flagHeight * 1.5, columnGap = small.fontSize * 0.8;
+  const textLeft = box.left + flagWidth + flagHeight * 0.3, textWidthLimit = box.right - textLeft;
+  const fullPrice = withSize(priceStyle, fullPriceSize * scale), fullName = withSize(nameStyle, fullNameSize * scale);
 
-  const tileSize = Math.max(smallestPhotoTile, Math.min(largestPhotoTile, bodyHeight, fullWidth - gapBesidePhoto - rowsNeed));
-  const tile = { left: sideMargin, top: bodyTop, width: tileSize, height: tileSize };
-  const textLeft = sideMargin + tileSize + gapBesidePhoto, rowsTop = bodyTop;
-  const nameLeft = textLeft + flagWidth + flagGap, rowWidth = textRight - nameLeft;
-  const nameAt = withSize(nameStyle, Math.min(...rows.map(row => fitted(row.name, nameStyle, rowWidth - detailColumns).fontSize)));
-  const localRight = textRight - (differenceColumn ? differenceColumn + columnGap : 0);
+  // The name and the role share the width with whatever stands at the right. A name gives way to a price, down to the small size.
+  // A range of prices and a reason for no price are long, so they give way too, and leave the name four fifths of its size.
+  const widthWithDot = (text: string, style: TextStyle) => textWidth(text, style) + style.fontSize * dotWidthEm;
+  const narrowestName = (row: RowWords) => textWidth(row.name, row.price && !row.isRange ? withSize(nameStyle, small.fontSize) : withSize(nameStyle, fullName.fontSize * 0.8));
+  const priceLimit = (row: RowWords) => textWidthLimit - columnGap - Math.max(textWidth(row.role, small), narrowestName(row));
+  const priceFitted = (row: RowWords, style: TextStyle) => withSize(style, Math.max(small.fontSize, Math.min(style.fontSize, Math.floor(style.fontSize * priceLimit(row) / widthWithDot(row.price, style)))));
+  const priceAt = withSize(priceStyle, Math.min(fullPrice.fontSize, ...rows.filter(row => row.price && !row.isRange).map(row => priceFitted(row, fullPrice).fontSize)));
+  // A place with no price says why where its price would be, on two lines when one is too long, at the largest size at which that fits.
+  const reasonOf = (row: RowWords): { lines: string[]; style: TextStyle } => {
+    for (let fontSize = small.fontSize; ; fontSize -= 2) {
+      const style: TextStyle = { ...small, fontSize, fontWeight: 600, colour: inkColour };
+      const lines = textWidth(row.unpriced, style) <= priceLimit(row) ? [row.unpriced] : twoLines(row.unpriced, style, priceLimit(row), priceLimit(row));
+      if (lines || fontSize <= small.fontSize / 2) return { lines: lines ?? [row.unpriced], style };
+    }
+  };
+  const rightWidth = (row: RowWords) => (row.price
+    ? Math.max(widthWithDot(row.price, row.isRange ? priceFitted(row, priceAt) : priceAt), textWidth(row.localMoney, small))
+    : Math.max(...reasonOf(row).lines.map(line => textWidth(line, reasonOf(row).style))));
+  const nameAt = withSize(nameStyle, Math.min(...rows.map(row => fitted(row.name, fullName, textWidthLimit - columnGap - rightWidth(row), small.fontSize).fontSize)));
 
-  // Every row is the same height, with the same air above and below; the spare height is shared out as that air.
-  const rowPadding = Math.max(0, Math.min(largestRowPadding, (bodyBottom - rowsTop - rows.length * rowHeight) / (rows.length * 2)));
-  const photoBoxSize = Math.min(tile.width, tile.height) * 5 / 6, photoLeft = tile.left + (tile.width - photoBoxSize) / 2, photoTop = tile.top + (tile.height - photoBoxSize) / 2;
-
-  let svg = textLine(product.productName, sideMargin, topOfContent, titleLineHeight, title);
-  specLines.forEach((line, index) => { svg += textLine(line, sideMargin, topOfContent + titleLineHeight + index * specLineHeight, specLineHeight, softStyle); });
+  const capitals = (style: TextStyle) => style.fontSize * interCapitalHeightEm;
+  const leftGap = 26 * scale, leftHeight = capitals(small) + leftGap + capitals(fullName);
+  const cheapestInUsDollars = comparison.cheapest[0].takeHomePriceInUsDollars;
+  let svg = '';
   rows.forEach((row, index) => {
-    const top = rowsTop + index * (rowHeight + rowPadding * 2) + rowPadding;
-    if (index) svg += `<rect x="${textLeft}" y="${(top - rowPadding - 1).toFixed(1)}" width="${textRight - textLeft}" height="2" fill="${inkColour}" fill-opacity="0.1"/>`;
-    const first = baselineOf(top, priceLine, amountStyle), second = baselineOf(top + priceLine, detailLine, nameAt);
-    svg += flag(pictures, row.row.placeCode, textLeft, first - flagHeight + 6, flagHeight);
-    svg += textOnBaseline(row.role, nameLeft, first, softStyle) + textOnBaseline(row.name, nameLeft, second, nameAt);
-    if (row.price) {
-      svg += textOnBaseline(row.price, textRight, first, fitted(row.price, amountStyle, rowWidth - textWidth(row.role, softStyle) - columnGap), 'end');
-      if (row.localMoney) svg += textOnBaseline(row.localMoney, localRight, second, softStyle, 'end');
-      if (row.difference) svg += textOnBaseline(row.difference, textRight, second, softStyle, 'end');
+    const top = box.top + index * rowHeight, middle = top + rowHeight / 2, leftTop = middle - leftHeight / 2;
+    if (index) svg += `<rect x="${box.left}" y="${(top - 1).toFixed(1)}" width="${box.right - box.left}" height="2" fill="${inkColour}" fill-opacity="0.1"/>`;
+    svg += flag(pictures, row.row.placeCode, box.left, middle - flagHeight / 2, flagHeight);
+    svg += textOnBaseline(row.role, textLeft, leftTop + capitals(small), small) + textOnBaseline(row.name, textLeft, leftTop + leftHeight, nameAt);
+    const { placePrice } = row.row;
+    if (placePrice.kind === 'priced' || placePrice.kind === 'priced-by-state-or-province') {
+      const price = row.isRange ? priceFitted(row, priceAt) : priceAt, rightGap = 36 * scale;
+      const rightHeight = capitals(price) + (row.localMoney ? rightGap + capitals(small) : 0), priceBaseline = middle - rightHeight / 2 + capitals(price);
+      const lowest = placePrice.kind === 'priced' ? placePrice.price : placePrice.lowest;
+      svg += textOnBaseline(row.price, box.right, priceBaseline, price, 'end');
+      svg += `<circle cx="${(box.right - textWidth(row.price, price) - price.fontSize * (dotGapEm + dotRadiusEm)).toFixed(1)}" cy="${(priceBaseline - capitals(price) / 2).toFixed(1)}" r="${(price.fontSize * dotRadiusEm).toFixed(1)}" fill="${priceColour(lowest.takeHomePriceInUsDollars, cheapestInUsDollars)}"/>`;
+      if (row.localMoney) svg += textOnBaseline(row.localMoney, box.right, priceBaseline + rightGap + capitals(small), small, 'end');
     } else {
-      // No price: the reason stands where the price and its details would, on the row's own two lines.
-      wrappedLines(row.unpriced, unpricedStyle, rowWidth - Math.max(textWidth(row.role, softStyle), textWidth(row.name, nameAt)) - columnGap).slice(0, 2)
-        .forEach((line, lineIndex) => { svg += textOnBaseline(line, textRight, lineIndex ? second : first, unpricedStyle, 'end'); });
+      const { lines, style } = reasonOf(row), lineStep = style.fontSize * 1.25, firstBaseline = middle + capitals(style) / 2 - (lines.length - 1) * lineStep / 2;
+      lines.forEach((line, lineIndex) => { svg += textOnBaseline(line, box.right, firstBaseline + lineIndex * lineStep, style, 'end'); });
     }
   });
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-<rect width="${width}" height="${height}" fill="${paperColour}"/>
-<rect x="${tile.left}" y="${tile.top}" width="${tile.width}" height="${tile.height}" rx="${Math.min(tile.width, tile.height) / 15}" fill="${photoTileColour}"/>
-${productPhoto(pictures, photoLeft, photoTop, photoBoxSize)}
-${svg}
-${textLine('appleprices.jjpcodes.com', sideMargin, footerBaseline - 50, 50, { fontSize: smallestFontSize, fontWeight: 600, letterSpacingEm: -0.02 })}
-${textLine('slopped up by @jjpcodes', textRight, footerBaseline - 50, 50, { fontSize: smallestFontSize, fontWeight: 400, letterSpacingEm: -0.02, colour: softInkColour }, 'end')}
-</svg>`;
+  return svg;
 }
 
-// The picture attached to a post is 20:17, the widest shape Twitter's carousel of pictures shows whole, and Twitter shows it whole on
-// its own too. A phone shows it about 260 points wide, a sixth of its size, so it carries less than the link's preview, in larger type:
-// each place's role, flag, name and price, with its local money under the price. The photo sits at the left and fades under the rows.
+const cardSvg = (width: number, height: number, drawn: string) => `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+<rect width="${width}" height="${height}" fill="${paperColour}"/>
+${drawn}
+</svg>`;
+
+const siteAddressWords = 'appleprices.jjpcodes.com', madeByWords = 'slopped up by @jjpcodes';
+
+// The picture attached to a post, the one Copy picture and Save picture give. It is 20:17, the widest shape Twitter's carousel of
+// pictures shows whole, and Twitter shows it whole on its own too. A phone shows it about 260 points wide, a sixth of its size.
+// The product, its specs and its photo share the top; the rows take the whole width below, so the longest place name and the
+// largest price both fit at full size. With fewer rows the photo grows.
 export const postPictureWidth = 1600, postPictureHeight = 1360;
-const postMargin = 72, postPhotoLeft = 48, widestPostPhoto = 620, narrowestPostPhoto = 400, rowsLeftAtMost = 600, rowsLeftAtLeast = 340;
-const postTitleStyle: TextStyle = { fontSize: 92, fontWeight: 700, letterSpacingEm: -0.03 };
-const postSoftStyle: TextStyle = { fontSize: 52, fontWeight: 400, letterSpacingEm: -0.01, colour: softInkColour };
-const postNameStyle: TextStyle = { fontSize: 76, fontWeight: 700, letterSpacingEm: -0.02 };
-const postPriceStyle: TextStyle = { fontSize: 104, fontWeight: 700, letterSpacingEm: -0.035 };
-const postUnpricedStyle: TextStyle = { fontSize: 52, fontWeight: 600, letterSpacingEm: -0.015 };
-const postFlagHeight = 72, postFlagGap = 28, postNameGap = 32, smallestPostNameSize = 64, smallestPostPriceSize = 88;
+const postTop = 64, postFooterBaseline = postPictureHeight - 60, postRowsBottom = postFooterBaseline - 84, gapAbovePostRows = 28;
+const largestPostRowScale = 1.25, smallestPostTile = 340, largestPostTile = 600, widestPostTile = 560, gapBesidePostTile = 56;
+const postTitleStyle: TextStyle = { fontSize: 104, fontWeight: 700, letterSpacingEm: -0.035 };
+const postSpecStyle: TextStyle = { fontSize: 52, fontWeight: 400, letterSpacingEm: -0.01, colour: softInkColour };
+const postTitleLine = 116, postSpecLine = 64;
 
 export function postPictureSvg(comparison: PriceComparison, pictures: ShareCardPictures): string {
   const { product, configuration } = comparison;
-  const width = postPictureWidth, height = postPictureHeight, textRight = width - postMargin, fullWidth = textRight - postMargin;
-  const title = fitted(product.productName, postTitleStyle, fullWidth);
-  const specLines = wrappedLines(specLine(product, configuration), postSoftStyle, fullWidth).slice(0, 2);
-  const bodyTop = 56 + 104 + specLines.length * 60 + 28;
-  const footerBaseline = height - 60;
-  const rows = cardRows(comparison).map(row => rowWords(comparison, row));
-  const bodyBottom = footerBaseline - 76;
+  const right = postPictureWidth - sideMargin, rowCount = cardRows(comparison).length;
+  const tileSize = Math.max(smallestPostTile, Math.min(largestPostTile, postRowsBottom - postTop - gapAbovePostRows - rowCount * rowHeightAtFullSize * largestPostRowScale));
+  const tileWidth = Math.min(widestPostTile, tileSize * 1.3);
+  const rowsTop = postTop + tileSize + gapAbovePostRows, titleWidthLimit = right - sideMargin - tileWidth - gapBesidePostTile;
+  const title = fitted(product.productName, postTitleStyle, titleWidthLimit, 64);
+  const specLines = wrappedLines(specLine(product, configuration), postSpecStyle, () => titleWidthLimit);
+  // The name and specs stand in the middle of the photo's height.
+  const titleTop = postTop + (tileSize - postTitleLine - specLines.length * postSpecLine) / 2;
 
-  // Each row has three lines: the role; the flag, name and price; the local money under the price. Rows share the height evenly,
-  // and every name, and every price, is set at one size: the largest at which the longest still fits.
-  const rowHeight = Math.min(236, (bodyBottom - bodyTop) / rows.length);
-  const padding = rowHeight * 0.07, roleLine = rowHeight * 0.22, mainLine = rowHeight * 0.44;
-  // The rows take the width their longest name and price need at a readable size; the photo slides further under them to give it.
-  const rowNeeds = (row: RowWords) => textWidth(row.name, withSize(postNameStyle, smallestPostNameSize)) + postNameGap
-    + (row.price ? textWidth(row.price, withSize(postPriceStyle, smallestPostPriceSize)) : textWidth(row.name, withSize(postNameStyle, smallestPostNameSize)));
-  const postRowsLeft = Math.round(Math.max(rowsLeftAtLeast, Math.min(rowsLeftAtMost, textRight - postFlagHeight * 1.5 - postFlagGap - Math.max(...rows.map(rowNeeds)))));
-  const postPhotoSize = Math.max(narrowestPostPhoto, Math.min(widestPostPhoto, postRowsLeft + 20)), postPhotoFadeStart = postRowsLeft - 40, postPhotoFadeEnd = postRowsLeft + 80;
-  const nameLeft = postRowsLeft + postFlagHeight * 1.5 + postFlagGap, rowWidth = textRight - nameLeft;
-  const priced = rows.filter(row => row.price);
-  const priceAt = withSize(postPriceStyle, Math.min(postPriceStyle.fontSize, ...priced.map(row => Math.max(smallestPostPriceSize, fitted(row.price, postPriceStyle, rowWidth - textWidth(row.name, withSize(postNameStyle, smallestPostNameSize)) - postNameGap).fontSize))));
-  const nameAt = withSize(postNameStyle, Math.min(postNameStyle.fontSize, ...rows.map(row => fitted(row.name, postNameStyle, rowWidth - (row.price ? textWidth(row.price, priceAt) : rowWidth / 2) - postNameGap).fontSize)));
+  let svg = photoTile(pictures, right - tileWidth, postTop, tileWidth, tileSize);
+  svg += textLine(product.productName, sideMargin, titleTop, postTitleLine, title);
+  specLines.forEach((line, index) => { svg += textLine(line, sideMargin, titleTop + postTitleLine + index * postSpecLine, postSpecLine, postSpecStyle); });
+  svg += placeRows(comparison, pictures, { left: sideMargin, right, top: rowsTop, bottom: postRowsBottom }, largestPostRowScale, 50);
+  svg += textOnBaseline(siteAddressWords, sideMargin, postFooterBaseline, { fontSize: 54, fontWeight: 600, letterSpacingEm: -0.02 });
+  svg += textOnBaseline(madeByWords, right, postFooterBaseline, { fontSize: 50, fontWeight: 400, letterSpacingEm: -0.015, colour: softInkColour }, 'end');
+  return cardSvg(postPictureWidth, postPictureHeight, svg);
+}
 
-  let svg = textLine(product.productName, postMargin, 56, 104, title);
-  specLines.forEach((line, index) => { svg += textLine(line, postMargin, 160 + index * 60, 60, postSoftStyle); });
-  rows.forEach((row, index) => {
-    const top = bodyTop + index * rowHeight;
-    if (index) svg += `<rect x="${postRowsLeft}" y="${(top - 1).toFixed(1)}" width="${textRight - postRowsLeft}" height="2" fill="${inkColour}" fill-opacity="0.1"/>`;
-    const roleBaseline = baselineOf(top + padding, roleLine, postSoftStyle), mainBaseline = baselineOf(top + padding + roleLine, mainLine, postNameStyle);
-    const localBaseline = baselineOf(top + padding + roleLine + mainLine, roleLine, postSoftStyle);
-    svg += flag(pictures, row.row.placeCode, postRowsLeft, mainBaseline - postFlagHeight + 8, postFlagHeight);
-    svg += textOnBaseline(row.role, nameLeft, roleBaseline, postSoftStyle);
-    svg += textOnBaseline(row.name, nameLeft, mainBaseline, nameAt);
-    if (row.price) {
-      svg += textOnBaseline(row.price, textRight, mainBaseline, priceAt, 'end');
-      if (row.localMoney) svg += textOnBaseline(row.localMoney, textRight, localBaseline, postSoftStyle, 'end');
-    } else {
-      const reasonLeft = nameLeft + textWidth(row.name, nameAt) + postNameGap;
-      wrappedLines(row.unpriced, postUnpricedStyle, textRight - reasonLeft).slice(0, 2)
-        .forEach((line, lineIndex) => { svg += textOnBaseline(line, textRight, lineIndex ? localBaseline : mainBaseline, postUnpricedStyle, 'end'); });
-    }
-  });
+// The picture Twitter shows when someone posts the bare link. It is 2:1 and a phone shows it about 340 points wide, a fifth of its
+// size. Twitter may trim it to 1.91:1, so the sides keep a wide margin, and it lays the page's title over the bottom left corner,
+// about a third of the width and the lowest fifth of the height on a phone. The photo's tile is there, with the photo raised a
+// little, and the site's address is at the top, where nothing covers it.
+export const shareCardWidth = 1800, shareCardHeight = 900;
+const previewTop = 44, previewBottom = shareCardHeight - 48, previewTileWidth = 540, gapBesidePreviewTile = 56, gapBelowPreviewSpecs = 22;
+const previewTitleStyle: TextStyle = { fontSize: 76, fontWeight: 700, letterSpacingEm: -0.035 };
+const previewSpecStyle: TextStyle = { fontSize: 44, fontWeight: 400, letterSpacingEm: -0.01, colour: softInkColour };
+const previewTitleLine = 84, previewSpecLine = 54;
 
-  const photoTop = bodyTop + (bodyBottom - bodyTop - postPhotoSize) / 2;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-<defs><linearGradient id="photo-fade" x1="${postPhotoFadeStart}" x2="${postPhotoFadeEnd}" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${paperColour}" stop-opacity="0"/><stop offset="1" stop-color="${paperColour}" stop-opacity="1"/></linearGradient></defs>
-<rect width="${width}" height="${height}" fill="${paperColour}"/>
-${productPhoto(pictures, postPhotoLeft, photoTop, postPhotoSize)}
-<rect x="${postPhotoFadeStart}" y="${photoTop}" width="${postPhotoLeft + postPhotoSize - postPhotoFadeStart}" height="${postPhotoSize}" fill="url(#photo-fade)"/>
-${svg}
-${textOnBaseline('appleprices.jjpcodes.com', postMargin, footerBaseline, { fontSize: 56, fontWeight: 600, letterSpacingEm: -0.02 })}
-${textOnBaseline('slopped up by @jjpcodes', textRight, footerBaseline, { fontSize: 52, fontWeight: 400, letterSpacingEm: -0.02, colour: softInkColour }, 'end')}
-</svg>`;
+export function shareCardSvg(comparison: PriceComparison, pictures: ShareCardPictures): string {
+  const { product, configuration } = comparison;
+  const right = shareCardWidth - sideMargin, fullWidth = right - sideMargin;
+  const address: TextStyle = { fontSize: 44, fontWeight: 600, letterSpacingEm: -0.02 }, madeBy: TextStyle = { ...previewSpecStyle, letterSpacingEm: -0.015 };
+  const title = fitted(product.productName, previewTitleStyle, fullWidth - textWidth(siteAddressWords, address) - 48, 56);
+  // The first line of specs shares its line with "slopped up by @jjpcodes".
+  const specLines = wrappedLines(specLine(product, configuration), previewSpecStyle, lineIndex => (lineIndex ? fullWidth : fullWidth - textWidth(madeByWords, madeBy) - 48));
+  const bodyTop = previewTop + previewTitleLine + specLines.length * previewSpecLine + gapBelowPreviewSpecs, tileHeight = previewBottom - bodyTop;
+  const titleBaseline = previewTop + (previewTitleLine + previewTitleStyle.fontSize * interCapitalHeightEm) / 2;
+
+  let svg = textOnBaseline(product.productName, sideMargin, titleBaseline, title) + textOnBaseline(siteAddressWords, right, titleBaseline, address, 'end');
+  specLines.forEach((line, index) => { svg += textLine(line, sideMargin, previewTop + previewTitleLine + index * previewSpecLine, previewSpecLine, previewSpecStyle); });
+  svg += textLine(madeByWords, right, previewTop + previewTitleLine, previewSpecLine, madeBy, 'end');
+  svg += photoTile(pictures, sideMargin, bodyTop, previewTileWidth, tileHeight, tileHeight * 0.06);
+  svg += placeRows(comparison, pictures, { left: sideMargin + previewTileWidth + gapBesidePreviewTile, right, top: bodyTop, bottom: previewBottom }, 1, 44);
+  return cardSvg(shareCardWidth, shareCardHeight, svg);
 }
 
 // The place codes whose flags the card for this comparison needs: each named place's country, and the place itself where it is a state or province.

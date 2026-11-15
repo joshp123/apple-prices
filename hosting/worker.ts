@@ -85,7 +85,8 @@ function pageForShareLink(snapshot: PriceSnapshot, selection: Selection, origin:
   const tags = Object.entries({
     'og:type': 'website', 'og:site_name': 'Apple Prices', 'og:title': title, 'og:description': sentence, 'og:url': origin + shareLinkPath(selection),
     'og:image': origin + shareCardPath(selection), 'og:image:width': String(shareCardWidth), 'og:image:height': String(shareCardHeight),
-    'twitter:card': 'summary_large_image', 'twitter:creator': '@jjpcodes', 'twitter:title': title, 'twitter:description': sentence, 'twitter:image': origin + shareCardPath(selection),
+    // Twitter lays its title over the bottom left corner of the picture, so it is short: it must not reach the rows.
+    'twitter:card': 'summary_large_image', 'twitter:creator': '@jjpcodes', 'twitter:title': 'Apple Prices', 'twitter:description': sentence, 'twitter:image': origin + shareCardPath(selection),
   }).map(([name, content]) => `<meta ${name.startsWith('og:') ? 'property' : 'name'}="${name}" content="${escapeHtml(content)}">`);
   const head = [`<title>${escapeHtml(title)}</title>`, `<meta name="description" content="${escapeHtml(sentence)}">`, ...tags].join('\n');
   const answer = `<div class="answer-from-server"><h1>${escapeHtml(comparison.product.productName)}</h1><p>${escapeHtml(specLine(comparison.product, comparison.configuration))}</p><p>${escapeHtml(sentence)}</p>`
