@@ -167,8 +167,8 @@ async function photographEveryState(): Promise<void> {
   }
 }
 
-// Both shapes of each card, then the three ways a phone's Twitter feed shows them, about 360 pixels wide: the link's preview,
-// the picture posted alone, and the picture as one of two in a post.
+// Both shapes of each card, then the ways a phone's Twitter feed shows them, about 360 points wide: the link's preview, the picture
+// posted alone, and the picture first in a carousel of pictures, where a tile is about 262 points wide and 20:17.
 async function photographShareCards(): Promise<void> {
   const context = await browser.newContext({ viewport: { width: 360, height: 900 }, deviceScaleFactor: 2 });
   for (const [name, address] of shareCards) {
@@ -184,8 +184,8 @@ async function photographShareCards(): Promise<void> {
     const page = await context.newPage();
     await page.setContent(`<body style="margin:0;padding:12px;font:13px system-ui;color:#536471;display:grid;gap:8px;width:336px">
       Link preview${frame('aspect-ratio:1.91', dataUrls['share-card'])}
-      Picture posted alone${frame('aspect-ratio:7/8', dataUrls['post-picture'])}
-      One of two pictures<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px">${frame('aspect-ratio:7/8', dataUrls['post-picture'])}<div style="aspect-ratio:7/8;background:#cfd9de;border-radius:12px"></div></div></body>`);
+      Picture posted alone${frame('aspect-ratio:20/17', dataUrls['post-picture'])}
+      First picture of two<div style="display:flex;gap:6px;overflow:hidden">${frame('flex:none;width:262px;aspect-ratio:20/17', dataUrls['post-picture'])}<div style="flex:none;width:120px;background:#cfd9de;border-radius:12px"></div></div></body>`);
     await page.screenshot({ path: `${photographFolder}/${name}-in-twitter.png`, fullPage: true });
     await page.close();
   }
@@ -259,7 +259,7 @@ async function journeyByMouse(): Promise<void> {
   check('the post carries the visitor’s words exactly', (await postLink()).searchParams.get('text') === '  My own words, kept as typed  ');
   await page.locator('#share-text').fill('');
   check('an empty post stays empty', !(await postLink()).searchParams.has('text') && (await postLink()).searchParams.get('url') === shareAddress);
-  check('the picture in the dialog is the Worker’s card', await page.locator('.share-card').evaluate(async (image: HTMLImageElement) => { await image.decode(); return image.naturalWidth === 1400; }));
+  check('the picture in the dialog is the Worker’s card', await page.locator('.share-card').evaluate(async (image: HTMLImageElement) => { await image.decode(); return image.naturalWidth === 1600; }));
   await page.getByRole('button', { name: 'Copy link' }).click();
   check('Copy link puts the link on the clipboard', await page.evaluate(() => navigator.clipboard.readText()) === shareAddress);
   await page.getByRole('button', { name: 'Copy picture' }).click();

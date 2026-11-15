@@ -62,7 +62,7 @@ export function shareDialogHtml(view: PageView): string {
   return `<div class="dialog-head"><ui-dialog-title class="dialog-title">Share these prices</ui-dialog-title>
       <ui-dialog-close><button type="button" class="icon-button" aria-label="Close">${icons.close}</button></ui-dialog-close></div>
     <div class="dialog-body">
-      <img class="share-card" src="${escapeHtml(picturePath)}" width="1400" height="1600" alt="The picture that goes with your post: ${escapeHtml(shareTextSuggested(view))}">
+      <img class="share-card" src="${escapeHtml(picturePath)}" width="1600" height="1360" alt="The picture that goes with your post: ${escapeHtml(shareTextSuggested(view))}">
       <div class="share-side">
         <label class="field-label" for="share-text">Your post</label>
         <ui-textarea><textarea id="share-text" name="post" rows="5" autocomplete="off" data-input="share-text">${escapeHtml(text)}</textarea></ui-textarea>
