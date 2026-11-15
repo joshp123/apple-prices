@@ -6,7 +6,7 @@ import { countryCodeOf, isStateOrProvince, placeName } from './places.ts';
 import { priceWords, unpricedWordsOnShareCard, type ComparisonColumn, type ComparisonRole, type PriceComparison } from './price-comparison.ts';
 import { priceColour } from './price-colour.ts';
 import { productPhotoPixels, shareCardPaperColour, type ProductPhoto } from './product-photos.ts';
-import { specLine } from './spec-words.ts';
+import { specNamesThatVary, storageWords } from './spec-words.ts';
 
 export type ShareCardPictures = {
   productPhoto: ProductPhoto;
@@ -37,17 +37,6 @@ function textWidth(textAsWritten: string, { fontSize, fontWeight, letterSpacingE
 
 function largestFontSizeThatFits(text: string, style: TextStyle, widthLimit: number): number {
   return Math.min(style.fontSize, Math.floor(style.fontSize * widthLimit / textWidth(text, style)));
-}
-
-// The width limit may differ by line: the first line of a link preview's specs is shorter than the rest.
-function wrappedLines(text: string, style: TextStyle, widthLimitOfLine: (lineIndex: number) => number): string[] {
-  const lines: string[] = [];
-  for (const word of text.split(' ')) {
-    const longerLine = lines.length ? `${lines[lines.length - 1]} ${word}` : word;
-    if (lines.length && textWidth(longerLine, style) <= widthLimitOfLine(lines.length - 1)) lines[lines.length - 1] = longerLine;
-    else lines.push(word);
-  }
-  return lines;
 }
 
 // Text whose capital letters sit in the middle of a line box.
@@ -228,16 +217,66 @@ ${drawn}
 
 const siteAddressWords = 'appleprices.jjpcodes.com', madeByWords = 'slopped up by @jjpcodes';
 
+// The card's heading is the product's name without what Apple puts in brackets after it: "MacBook Pro", not
+// "MacBook Pro (Liquid Retina XDR)", so the name stays large. The bracketed words join the specs. The page keeps the whole name.
+function headingAndDesignation(productName: string): { heading: string; designation: string } {
+  const [, heading, designation] = productName.match(/^(.*) \((.*)\)$/) ?? [];
+  return heading ? { heading, designation } : { heading: productName, designation: '' };
+}
+
+// The same specs the page gives, in fewer letters: what makes the price comparable first, then the display and the extras.
+function cardSpecParts(product: PriceComparison['product'], configuration: PriceComparison['configuration']): string[] {
+  const specs = configuration.specs!, varying = specNamesThatVary(product), parts: string[] = [];
+  if (specs.caseSizeMillimetres) parts.push(`${specs.caseSizeMillimetres}mm${specs.caseMaterial ? ` ${specs.caseMaterial.toLowerCase()}` : ''}`);
+  if (specs.screenSizeInches) parts.push(`${specs.screenSizeInches}-inch`);
+  if (specs.chip) parts.push(specs.chip);
+  if (specs.cpuCoreCount && specs.cpuCoreCount === specs.gpuCoreCount) parts.push(`${specs.cpuCoreCount}-core CPU/GPU`);
+  else {
+    if (specs.cpuCoreCount) parts.push(`${specs.cpuCoreCount}-core CPU`);
+    if (specs.gpuCoreCount) parts.push(`${specs.gpuCoreCount}-core GPU`);
+  }
+  if (specs.memoryGigabytes) parts.push(`${specs.memoryGigabytes}GB RAM`);
+  if (specs.storageGigabytes) parts.push(storageWords(specs.storageGigabytes));
+  if (specs.connectivity) parts.push(specs.connectivity);
+  const { designation } = headingAndDesignation(product.productName);
+  if (designation) parts.push(designation);
+  for (const specName of ['displayGlass', 'stand', 'chargingCase'] as const) if (specs[specName] && varying.includes(specName)) parts.push(specs[specName]);
+  if (specs.packQuantity) parts.push(specs.packQuantity === 1 ? 'One' : `Pack of ${specs.packQuantity}`);
+  return parts;
+}
+
+// Specs with a dot between them, on as many lines as they need; a line never ends inside a spec.
+const betweenSpecs = ' · ';
+function specLines(parts: string[], style: TextStyle, widthLimitOfLine: (lineIndex: number) => number): string[] {
+  const lines: string[] = [];
+  for (const part of parts) {
+    const longerLine = lines.length ? lines[lines.length - 1] + betweenSpecs + part : part;
+    if (lines.length && textWidth(longerLine, style) <= widthLimitOfLine(lines.length - 1)) lines[lines.length - 1] = longerLine;
+    else lines.push(part);
+  }
+  // A last line of one spec takes the spec before it for company, when the two fit.
+  const lastLine = lines[lines.length - 1], lineBefore = lines[lines.length - 2]?.split(betweenSpecs);
+  if (lineBefore && lineBefore.length > 1 && !lastLine.includes(betweenSpecs)) {
+    const together = lineBefore[lineBefore.length - 1] + betweenSpecs + lastLine;
+    if (textWidth(together, style) <= widthLimitOfLine(lines.length - 1)) lines.splice(-2, 2, lineBefore.slice(0, -1).join(betweenSpecs), together);
+  }
+  return lines;
+}
+
+// What every price on the card is: its currency, and that tax is in it.
+const pricesAreWords = (comparison: PriceComparison) => `${comparison.selection.displayCurrencyCode}${betweenSpecs}Tax included`;
+
 // The picture attached to a post, the one Copy picture and Save picture give. It is 20:17, the widest shape Twitter's carousel of
 // pictures shows whole, and Twitter shows it whole on its own too. A phone shows it about 260 points wide, a sixth of its size.
-// The product, its specs and its photo share the top; the rows take the whole width below, so the longest place name and the
-// largest price both fit at full size. With fewer rows the photo grows.
+// The product, its specs and its photo share the top, with what the prices are on the line above the rows. The rows take the whole
+// width below, so the longest place name and the largest price both fit at full size. With fewer rows the photo grows.
 export const postPictureWidth = 1600, postPictureHeight = 1360;
 const postTop = 64, postFooterBaseline = postPictureHeight - 60, postRowsBottom = postFooterBaseline - 84, gapAbovePostRows = 28;
-const largestPostRowScale = 1.25, smallestPostTile = 340, largestPostTile = 600, widestPostTile = 560, gapBesidePostTile = 56;
+const largestPostRowScale = 1.25, smallestPostTile = 356, largestPostTile = 600, widestPostTile = 560, gapBesidePostTile = 56;
 const postTitleStyle: TextStyle = { fontSize: 104, fontWeight: 700, letterSpacingEm: -0.035 };
 const postSpecStyle: TextStyle = { fontSize: 52, fontWeight: 400, letterSpacingEm: -0.01, colour: softInkColour };
-const postTitleLine = 116, postSpecLine = 64;
+const pricesAreStyle: TextStyle = { fontSize: 46, fontWeight: 600, letterSpacingEm: -0.005, colour: softInkColour };
+const postTitleLine = 108, postSpecLine = 60, postPricesAreLine = 52;
 
 export function postPictureSvg(comparison: PriceComparison, pictures: ShareCardPictures): string {
   const { product, configuration } = comparison;
@@ -245,14 +284,16 @@ export function postPictureSvg(comparison: PriceComparison, pictures: ShareCardP
   const tileSize = Math.max(smallestPostTile, Math.min(largestPostTile, postRowsBottom - postTop - gapAbovePostRows - rowCount * rowHeightAtFullSize * largestPostRowScale));
   const tileWidth = Math.min(widestPostTile, tileSize * 1.3);
   const rowsTop = postTop + tileSize + gapAbovePostRows, titleWidthLimit = right - sideMargin - tileWidth - gapBesidePostTile;
-  const title = fitted(product.productName, postTitleStyle, titleWidthLimit, 64);
-  const specLines = wrappedLines(specLine(product, configuration), postSpecStyle, () => titleWidthLimit);
-  // The name and specs stand in the middle of the photo's height.
-  const titleTop = postTop + (tileSize - postTitleLine - specLines.length * postSpecLine) / 2;
+  const { heading } = headingAndDesignation(product.productName);
+  const title = fitted(heading, postTitleStyle, titleWidthLimit, 64);
+  const specs = specLines(cardSpecParts(product, configuration), postSpecStyle, () => titleWidthLimit);
+  // The name and specs stand in the middle of the height the photo has above the last line, which says what the prices are.
+  const titleTop = postTop + (tileSize - postPricesAreLine - postTitleLine - specs.length * postSpecLine) / 2;
 
   let svg = photoTile(pictures, right - tileWidth, postTop, tileWidth, tileSize);
-  svg += textLine(product.productName, sideMargin, titleTop, postTitleLine, title);
-  specLines.forEach((line, index) => { svg += textLine(line, sideMargin, titleTop + postTitleLine + index * postSpecLine, postSpecLine, postSpecStyle); });
+  svg += textLine(heading, sideMargin, titleTop, postTitleLine, title);
+  specs.forEach((line, index) => { svg += textLine(line, sideMargin, titleTop + postTitleLine + index * postSpecLine, postSpecLine, postSpecStyle); });
+  svg += textOnBaseline(pricesAreWords(comparison), sideMargin, postTop + tileSize - 4, pricesAreStyle);
   svg += placeRows(comparison, pictures, { left: sideMargin, right, top: rowsTop, bottom: postRowsBottom }, largestPostRowScale, 50);
   svg += textOnBaseline(siteAddressWords, sideMargin, postFooterBaseline, { fontSize: 54, fontWeight: 600, letterSpacingEm: -0.02 });
   svg += textOnBaseline(madeByWords, right, postFooterBaseline, { fontSize: 50, fontWeight: 400, letterSpacingEm: -0.015, colour: softInkColour }, 'end');
@@ -261,10 +302,11 @@ export function postPictureSvg(comparison: PriceComparison, pictures: ShareCardP
 
 // The picture Twitter shows when someone posts the bare link. It is 2:1 and a phone shows it about 340 points wide, a fifth of its
 // size. Twitter may trim it to 1.91:1, so the sides keep a wide margin, and it lays the page's title over the bottom left corner,
-// about a third of the width and the lowest fifth of the height on a phone. The photo's tile is there, with the photo raised a
-// little, and the site's address is at the top, where nothing covers it.
+// about a third of the width and the lowest fifth of the height on a phone. The photo's tile is there, as narrow as that title,
+// with the photo raised a little. The site's address is at the top, where nothing covers it, and what the prices are stands
+// above them.
 export const shareCardWidth = 1800, shareCardHeight = 900;
-const previewTop = 44, previewBottom = shareCardHeight - 48, previewTileWidth = 540, gapBesidePreviewTile = 56, gapBelowPreviewSpecs = 22;
+const previewTop = 44, previewBottom = shareCardHeight - 48, previewTileWidth = 432, gapBesidePreviewTile = 56, gapBelowPreviewSpecs = 22;
 const previewTitleStyle: TextStyle = { fontSize: 76, fontWeight: 700, letterSpacingEm: -0.035 };
 const previewSpecStyle: TextStyle = { fontSize: 44, fontWeight: 400, letterSpacingEm: -0.01, colour: softInkColour };
 const previewTitleLine = 84, previewSpecLine = 54;
@@ -273,16 +315,19 @@ export function shareCardSvg(comparison: PriceComparison, pictures: ShareCardPic
   const { product, configuration } = comparison;
   const right = shareCardWidth - sideMargin, fullWidth = right - sideMargin;
   const address: TextStyle = { fontSize: 44, fontWeight: 600, letterSpacingEm: -0.02 }, madeBy: TextStyle = { ...previewSpecStyle, letterSpacingEm: -0.015 };
-  const title = fitted(product.productName, previewTitleStyle, fullWidth - textWidth(siteAddressWords, address) - 48, 56);
-  // The first line of specs shares its line with "slopped up by @jjpcodes".
-  const specLines = wrappedLines(specLine(product, configuration), previewSpecStyle, lineIndex => (lineIndex ? fullWidth : fullWidth - textWidth(madeByWords, madeBy) - 48));
-  const bodyTop = previewTop + previewTitleLine + specLines.length * previewSpecLine + gapBelowPreviewSpecs, tileHeight = previewBottom - bodyTop;
+  const { heading } = headingAndDesignation(product.productName), pricesAre = withSize(pricesAreStyle, 42);
+  const title = fitted(heading, previewTitleStyle, fullWidth - textWidth(siteAddressWords, address) - 48, 56);
+  // The right of the three lines at the top: the address, "slopped up by @jjpcodes", and what the prices are. The specs wrap clear of them.
+  const rightOfLine = [madeByWords, pricesAreWords(comparison)], rightStyles = [madeBy, pricesAre];
+  const specs = specLines(cardSpecParts(product, configuration), previewSpecStyle, lineIndex => fullWidth - (rightOfLine[lineIndex] ? textWidth(rightOfLine[lineIndex], rightStyles[lineIndex]) + 48 : 0));
+  const linesBelowTitle = Math.max(specs.length, rightOfLine.length);
+  const bodyTop = previewTop + previewTitleLine + linesBelowTitle * previewSpecLine + gapBelowPreviewSpecs, tileHeight = previewBottom - bodyTop;
   const titleBaseline = previewTop + (previewTitleLine + previewTitleStyle.fontSize * interCapitalHeightEm) / 2;
 
-  let svg = textOnBaseline(product.productName, sideMargin, titleBaseline, title) + textOnBaseline(siteAddressWords, right, titleBaseline, address, 'end');
-  specLines.forEach((line, index) => { svg += textLine(line, sideMargin, previewTop + previewTitleLine + index * previewSpecLine, previewSpecLine, previewSpecStyle); });
-  svg += textLine(madeByWords, right, previewTop + previewTitleLine, previewSpecLine, madeBy, 'end');
-  svg += photoTile(pictures, sideMargin, bodyTop, previewTileWidth, tileHeight, tileHeight * 0.06);
+  let svg = textOnBaseline(heading, sideMargin, titleBaseline, title) + textOnBaseline(siteAddressWords, right, titleBaseline, address, 'end');
+  specs.forEach((line, index) => { svg += textLine(line, sideMargin, previewTop + previewTitleLine + index * previewSpecLine, previewSpecLine, previewSpecStyle); });
+  rightOfLine.forEach((line, index) => { svg += textLine(line, right, previewTop + previewTitleLine + index * previewSpecLine, previewSpecLine, rightStyles[index], 'end'); });
+  svg += photoTile(pictures, sideMargin, bodyTop, previewTileWidth, tileHeight, tileHeight * 0.08);
   svg += placeRows(comparison, pictures, { left: sideMargin + previewTileWidth + gapBesidePreviewTile, right, top: bodyTop, bottom: previewBottom }, 1, 44);
   return cardSvg(shareCardWidth, shareCardHeight, svg);
 }
