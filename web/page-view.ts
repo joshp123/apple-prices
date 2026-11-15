@@ -8,8 +8,6 @@ export const roleWordingOnPage: RoleWording = { cheapest: 'Cheapest', visitor: '
 export type PageState = Selection & {
   // The place whose pop-up is open on the map.
   popUpPlaceCode: string | null;
-  // The visitor's own words for the post, kept exactly as typed, even when empty. Not typed yet: the sentence the page suggests.
-  shareTextAsTyped: string | null;
   locationProblem: string;
 };
 

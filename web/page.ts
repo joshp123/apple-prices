@@ -8,7 +8,7 @@ import { postPicturePath, selectionFromShareLink, shareLinkPath } from '../src/s
 import { specLine } from '../src/spec-words.ts';
 import { answerHtml, drawAnswer, placeListHtml, placePicker, type PlacePickerPurpose } from './answer.ts';
 import { isPhoneWidth, roleWordingOnPage, type PageState, type PageView } from './page-view.ts';
-import { placePopUpHtml, popUpsHtml, postOnTwitterLink, shareDialogHtml, shareLink } from './pop-ups.ts';
+import { placePopUpHtml, popUpsHtml, shareDialogHtml, shareLink } from './pop-ups.ts';
 import { createPriceMap, mapAreas, type PriceMap } from './price-map.ts';
 import { currencyWords, drawProductBar, productBarHtml } from './product-bar.ts';
 
@@ -41,7 +41,7 @@ function view(): PageView {
 }
 
 // The address is the share link: what is shown, nothing about which list is open.
-const stateFromAddress = (): PageState => ({ ...selectionFromShareLink(snapshot, new URL(location.href)), popUpPlaceCode: null, shareTextAsTyped: null, locationProblem: '' });
+const stateFromAddress = (): PageState => ({ ...selectionFromShareLink(snapshot, new URL(location.href)), popUpPlaceCode: null, locationProblem: '' });
 const chosenPrices = () => [state.productId, state.configurationId, state.visitorPlaceCode, state.comparedPlaceCode, state.displayCurrencyCode].join(' ');
 
 function announce(message: string): void {
@@ -75,7 +75,6 @@ function change(changes: Partial<PageState>): void {
   const prices = priceComparison(snapshot, state).prices;
   if (state.comparedPlaceCode && !canCompareWith(snapshot, product, prices, state.visitorPlaceCode, state.comparedPlaceCode)) state.comparedPlaceCode = null;
   const pricesChanged = chosenPrices() !== pricesBefore;
-  if (pricesChanged) state.shareTextAsTyped = null;
   drawEverything();
   // Until the visitor moves the map themselves, it keeps the places the answer names in view as they change.
   if (pricesChanged && mapArea === 'named-places') showMapArea(true);
@@ -217,13 +216,6 @@ document.addEventListener('click', event => {
         () => { element('.share-status').textContent = 'Picture copied.'; },
         () => { element('.share-status').textContent = 'This browser did not allow copying the picture. Use Save picture instead.'; });
   }
-});
-
-document.addEventListener('input', event => {
-  const input = event.target as HTMLTextAreaElement;
-  if (input.dataset.input !== 'share-text') return;
-  state.shareTextAsTyped = input.value;
-  element<HTMLAnchorElement>('#post-on-twitter').href = postOnTwitterLink(view(), input.value);
 });
 
 // Pointing at or focusing a map label lights up its place on the map.

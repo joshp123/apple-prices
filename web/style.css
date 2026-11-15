@@ -285,14 +285,12 @@ body { display: block; position: relative; }
 
 .backdrop { background: var(--scrim); transition: opacity 160ms ease; }
 .backdrop[data-starting-style], .backdrop[data-ending-style] { opacity: 0; }
-.dialog { inline-size: min(960px, calc(100% - 32px)); padding: 0; gap: 0; border-radius: var(--radius-surface); }
+.dialog { inline-size: min(608px, calc(100% - 32px)); padding: 0; gap: 0; border-radius: var(--radius-surface); }
 .dialog-head { display: flex; align-items: center; justify-content: space-between; padding: var(--space-4) var(--space-4) 0 var(--space-6); }
 .dialog-title { font-size: var(--text-strong); font-weight: 600; }
-.dialog-body { display: grid; grid-template-columns: minmax(0, 560px) minmax(0, 1fr); gap: var(--space-6); padding: var(--space-4) var(--space-6) var(--space-6); }
-.share-card { display: block; inline-size: 100%; block-size: auto; aspect-ratio: 20 / 17; border-radius: var(--radius-control); background: var(--wash); box-shadow: var(--shadow-label); }
+.dialog-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); padding: var(--space-4) var(--space-6) var(--space-6); }
+.share-card { display: block; justify-self: center; inline-size: min(100%, calc((100dvh - 300px) * 20 / 17)); block-size: auto; aspect-ratio: 20 / 17; border-radius: var(--radius-control); background: var(--wash); box-shadow: var(--shadow-label); }
 .share-side { display: flex; flex-direction: column; gap: var(--space-2); min-inline-size: 0; }
-.field-label { font-size: var(--text-label); font-weight: 500; }
-.share-side textarea { inline-size: 100%; min-block-size: 132px; font-size: var(--text-body); line-height: 1.4; }
 .share-link { font-size: var(--text-label); color: var(--ink-2); overflow-wrap: anywhere; }
 .share-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); margin-block-start: var(--space-2); }
 .share-actions > * { inline-size: 100%; justify-content: center; text-align: center; white-space: nowrap; }
@@ -367,7 +365,6 @@ body { display: block; position: relative; }
   .key-band { inline-size: 48px; }
   .dialog-body { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); padding: var(--space-3) var(--page-margin) max(var(--space-4), env(safe-area-inset-bottom)); }
   .dialog-head { padding-inline-start: var(--page-margin); }
-  .share-side textarea { min-block-size: 104px; font-size: 16px; }
   .list-search input { font-size: 16px; }
 }
 

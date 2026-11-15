@@ -2,7 +2,6 @@
 import '@ui-sdk/web/button';
 import '@ui-sdk/web/dialog';
 import '@ui-sdk/web/popover';
-import '@ui-sdk/web/textarea';
 import { placeName, stateOrProvinceWords } from '../src/places.ts';
 import { canCompareWith, differenceFromVisitorWords, placePriceOf, priceWords, salesTaxSentence, shareSentence, unpricedSentence } from '../src/price-comparison.ts';
 import { postPicturePath, shareLinkPath } from '../src/share-link.ts';
@@ -15,7 +14,7 @@ export const popUpsHtml = `
   </ui-popover>
   <ui-dialog id="share-dialog" presentation="auto">
     <ui-dialog-backdrop hidden class="backdrop"></ui-dialog-backdrop>
-    <ui-dialog-content hidden class="dialog" initial-focus="#share-text"></ui-dialog-content>
+    <ui-dialog-content hidden class="dialog" initial-focus="#post-on-twitter"></ui-dialog-content>
   </ui-dialog>`;
 
 const actionButton = (words: string, attributes: string, isPrimary = false) =>
@@ -48,27 +47,19 @@ export function placePopUpHtml({ snapshot, state, comparison, openerPlaceCode, v
 }
 
 export const shareLink = ({ state }: PageView) => `${location.origin}${shareLinkPath(state)}`;
-export const shareTextSuggested = ({ comparison }: PageView) => shareSentence(comparison);
-
-// X shows the link's picture beside the post. The words are the visitor's own, exactly as typed; none at all is allowed.
-export function postOnTwitterLink(view: PageView, text: string): string {
-  const parameters = new URLSearchParams({ url: shareLink(view) });
-  if (text) parameters.set('text', text);
-  return `https://x.com/intent/post?${parameters}`;
-}
+// Twitter opens with only the link; the visitor writes their own words there.
+export const postOnTwitterLink = (view: PageView) => `https://x.com/intent/post?${new URLSearchParams({ url: shareLink(view) })}`;
 
 export function shareDialogHtml(view: PageView): string {
-  const text = view.state.shareTextAsTyped ?? shareTextSuggested(view), picturePath = postPicturePath(view.state);
+  const picturePath = postPicturePath(view.state);
   return `<div class="dialog-head"><ui-dialog-title class="dialog-title">Share these prices</ui-dialog-title>
       <ui-dialog-close><button type="button" class="icon-button" aria-label="Close">${icons.close}</button></ui-dialog-close></div>
     <div class="dialog-body">
-      <img class="share-card" src="${escapeHtml(picturePath)}" width="1600" height="1360" alt="The picture that goes with your post: ${escapeHtml(shareTextSuggested(view))}">
+      <img class="share-card" src="${escapeHtml(picturePath)}" width="1600" height="1360" alt="The picture to share: ${escapeHtml(shareSentence(view.comparison))}">
       <div class="share-side">
-        <label class="field-label" for="share-text">Your post</label>
-        <ui-textarea><textarea id="share-text" name="post" rows="5" autocomplete="off" data-input="share-text">${escapeHtml(text)}</textarea></ui-textarea>
         <p class="share-link" translate="no">${escapeHtml(shareLink(view).replace(/^https?:\/\//, ''))}</p>
         <div class="share-actions">
-          <a class="control control-primary" id="post-on-twitter" href="${escapeHtml(postOnTwitterLink(view, text))}" target="_blank" rel="noopener">Post on Twitter</a>
+          <a class="control control-primary" id="post-on-twitter" href="${escapeHtml(postOnTwitterLink(view))}" target="_blank" rel="noopener">Post on Twitter</a>
           ${actionButton('Copy link', 'data-action="copy-share-link"')}
           ${actionButton('Copy picture', 'data-action="copy-share-card"')}
           <a class="control" href="${escapeHtml(picturePath)}" download="apple-prices-${view.state.productId}.png">Save picture</a>

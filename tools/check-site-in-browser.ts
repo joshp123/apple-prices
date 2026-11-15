@@ -259,10 +259,6 @@ async function journeyByMouse(): Promise<void> {
   const shareAddress = `${siteAddress}/iphone-18-pro/6.3in-256gb?me=NL&vs=JP&in=EUR`;
   const postLink = async () => new URL((await page.locator('#post-on-twitter').getAttribute('href'))!);
   check('the post links to this exact comparison', (await postLink()).searchParams.get('url') === shareAddress, (await postLink()).searchParams.get('url') ?? '');
-  await page.locator('#share-text').fill('  My own words, kept as typed  ');
-  check('the post carries the visitor’s words exactly', (await postLink()).searchParams.get('text') === '  My own words, kept as typed  ');
-  await page.locator('#share-text').fill('');
-  check('an empty post stays empty', !(await postLink()).searchParams.has('text') && (await postLink()).searchParams.get('url') === shareAddress);
   check('the picture in the dialog is the Worker’s card', await page.locator('.share-card').evaluate(async (image: HTMLImageElement) => { await image.decode(); return image.naturalWidth === 1600; }));
   await page.getByRole('button', { name: 'Copy link' }).click();
   check('Copy link puts the link on the clipboard', await page.evaluate(() => navigator.clipboard.readText()) === shareAddress);
@@ -275,9 +271,6 @@ async function journeyByMouse(): Promise<void> {
   await page.keyboard.press('Escape');
   await settled(page);
   check('Escape closes the share dialog', !(await page.locator('.dialog').isVisible()));
-  await page.getByRole('button', { name: 'Share' }).click();
-  check('the typed words are kept for next time', (await page.locator('#share-text').inputValue()) === '');
-  await page.keyboard.press('Escape');
 
   // The share link's own page carries the tags X reads.
   const sharedHtml = await (await fetch(shareAddress)).text();
