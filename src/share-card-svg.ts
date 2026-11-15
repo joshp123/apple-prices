@@ -187,7 +187,7 @@ function placeRows(comparison: PriceComparison, pictures: ShareCardPictures, box
 
   const capitals = (style: TextStyle) => style.fontSize * interCapitalHeightEm;
   const leftGap = 26 * scale, leftHeight = capitals(small) + leftGap + capitals(fullName);
-  const cheapestInUsDollars = comparison.cheapest[0].takeHomePriceInUsDollars;
+  const cheapestInUsDollars = comparison.cheapest[0].amountInUsDollars;
   let svg = '';
   rows.forEach((row, index) => {
     const top = box.top + index * rowHeight, middle = top + rowHeight / 2, leftTop = middle - leftHeight / 2;
@@ -200,7 +200,7 @@ function placeRows(comparison: PriceComparison, pictures: ShareCardPictures, box
       const rightHeight = capitals(price) + (row.localMoney ? rightGap + capitals(small) : 0), priceBaseline = middle - rightHeight / 2 + capitals(price);
       const lowest = placePrice.kind === 'priced' ? placePrice.price : placePrice.lowest;
       svg += textOnBaseline(row.price, box.right, priceBaseline, price, 'end');
-      svg += `<circle cx="${(box.right - textWidth(row.price, price) - price.fontSize * (dotGapEm + dotRadiusEm)).toFixed(1)}" cy="${(priceBaseline - capitals(price) / 2).toFixed(1)}" r="${(price.fontSize * dotRadiusEm).toFixed(1)}" fill="${priceColour(lowest.takeHomePriceInUsDollars, cheapestInUsDollars)}"/>`;
+      svg += `<circle cx="${(box.right - textWidth(row.price, price) - price.fontSize * (dotGapEm + dotRadiusEm)).toFixed(1)}" cy="${(priceBaseline - capitals(price) / 2).toFixed(1)}" r="${(price.fontSize * dotRadiusEm).toFixed(1)}" fill="${priceColour(lowest.amountInUsDollars, cheapestInUsDollars)}"/>`;
       if (row.localMoney) svg += textOnBaseline(row.localMoney, box.right, priceBaseline + rightGap + capitals(small), small, 'end');
     } else {
       const { lines, style } = reasonOf(row), lineStep = style.fontSize * 1.25, firstBaseline = middle + capitals(style) / 2 - (lines.length - 1) * lineStep / 2;
@@ -264,7 +264,7 @@ function specLines(parts: string[], style: TextStyle, widthLimitOfLine: (lineInd
 }
 
 // What every price on the card is: its currency, and that tax is in it.
-const pricesAreWords = (comparison: PriceComparison) => `${comparison.selection.displayCurrencyCode}${betweenSpecs}Tax included`;
+const pricesAreWords = (comparison: PriceComparison) => `${comparison.selection.displayCurrencyCode}${betweenSpecs}${comparison.selection.pricesIncludeTax ? 'Tax included' : 'Before tax'}`;
 
 // The picture attached to a post, the one Copy picture and Save picture give. It is 20:17, the widest shape Twitter's carousel of
 // pictures shows whole, and Twitter shows it whole on its own too. A phone shows it about 260 points wide, a sixth of its size.

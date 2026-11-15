@@ -1,8 +1,8 @@
-// A share link carries everything the share card shows: /iphone-18-pro/6.3in-256gb?me=NL&vs=CN&in=EUR
+// A share link carries everything the share card shows: /iphone-18-pro/6.3in-256gb?me=NL&vs=CN&in=EUR&tax=before
 import type { PriceSnapshot } from './generated/apple_prices/v1/price_snapshot_pb.js';
 import { isKnownPlaceCode, placeCodeForCountryCode } from './places.ts';
 import { canCompareWith, type Selection } from './price-comparison.ts';
-import { takeHomePrices } from './take-home-prices.ts';
+import { territoryPrices } from './territory-prices.ts';
 
 export const displayCurrencyCodeUnlessChosen = 'USD';
 
@@ -11,6 +11,7 @@ function query(selection: Selection): string {
   if (selection.visitorPlaceCode) parameters.set('me', selection.visitorPlaceCode);
   if (selection.comparedPlaceCode) parameters.set('vs', selection.comparedPlaceCode);
   if (selection.displayCurrencyCode !== displayCurrencyCodeUnlessChosen) parameters.set('in', selection.displayCurrencyCode);
+  if (!selection.pricesIncludeTax) parameters.set('tax', 'before');
   return parameters.size ? `?${parameters}` : '';
 }
 
@@ -39,13 +40,15 @@ export function selectionFromShareLink(snapshot: PriceSnapshot, link: URL): Sele
   };
   const visitorPlaceCode = placeCodeIn('me'), comparedPlaceCode = placeCodeIn('vs');
   const displayCurrencyCode = (link.searchParams.get('in') ?? '').toUpperCase();
-  const prices = takeHomePrices(snapshot, product.productId, configuration.configurationId);
+  const pricesIncludeTax = link.searchParams.get('tax') !== 'before';
+  const prices = territoryPrices(snapshot, product.productId, configuration.configurationId, pricesIncludeTax);
   return {
     productId: product.productId,
     configurationId: configuration.configurationId,
     visitorPlaceCode,
     comparedPlaceCode: comparedPlaceCode && canCompareWith(snapshot, product, prices, visitorPlaceCode, comparedPlaceCode) ? comparedPlaceCode : null,
     displayCurrencyCode: snapshot.exchangeRates!.rates.some(rate => rate.currencyCode === displayCurrencyCode) ? displayCurrencyCode : displayCurrencyCodeUnlessChosen,
+    pricesIncludeTax,
   };
 }
 

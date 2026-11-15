@@ -10,6 +10,7 @@ import {
   readLinkedPaths, readPricedVariants, readProductSelectionData, readableText,
 } from './apple-store-page.ts';
 import { appleOnlineStores, appleStoresAddingSalesTaxAtCheckout, type AppleOnlineStore } from './apple-stores.ts';
+import { consumptionTaxOf } from './consumption-tax-rates.ts';
 import { configurationIdFromSpecs, specsFromLocalisedMacProductName, specsFromMacProductName, specsFromVariantDimensions } from './product-specs.ts';
 import { canadaCombinedSalesTaxPercent, canadaSalesTaxSource, unitedStatesCombinedSalesTaxPercent, unitedStatesSalesTaxSource, type SalesTaxSource } from './sales-tax-rates.ts';
 
@@ -314,6 +315,7 @@ async function main() {
       storeUrl: store.storeUrl,
       priceSourceKind,
       shelfPriceIncludesSalesTax: !appleStoresAddingSalesTaxAtCheckout.has(store.appleStoreId),
+      consumptionTax: consumptionTaxOf(store.countryCode, !appleStoresAddingSalesTaxAtCheckout.has(store.appleStoreId)),
       productIdsNotSold,
       shelfPrices: prices.map(price => create(ShelfPriceSchema, {
         productId: price.productId,

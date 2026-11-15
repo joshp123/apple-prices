@@ -76,6 +76,21 @@ message AppleStore {
   repeated ShelfPrice shelf_prices = 7;
   // Products Apple's store confirms it doesn't sell here. A product in neither list has no price from Apple here.
   repeated string product_ids_not_sold = 8;
+  // The consumption tax in this store's shelf price, which a price before tax takes out. Unset where the store adds tax at checkout.
+  ConsumptionTax consumption_tax = 9;
+}
+
+// One country's standard VAT, GST or consumption tax, as checked against a first-party source.
+message ConsumptionTax {
+  // Unset where no single rate can be taken out of the shelf price, for the reason given.
+  optional double percent = 1;
+  // As the country calls it: VAT, GST, consumption tax.
+  string tax_name = 2;
+  string why_no_single_rate = 3;
+  string source_name = 4;
+  string source_url = 5;
+  // ISO 8601 date the rate was last checked as current.
+  string checked_on = 6;
 }
 
 message ShelfPrice {

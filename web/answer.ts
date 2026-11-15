@@ -6,11 +6,11 @@ import type { UiComboboxElement } from '@ui-sdk/web';
 import { countriesTaxedByStateOrProvince, countryCodeOf, isStateOrProvince, placeName, placeNameAfterIn, stateOrProvinceWords } from '../src/places.ts';
 import { priceColour } from '../src/price-colour.ts';
 import {
-  canCompareWith, placePriceOf, priceWords, salesTaxLabel, salesTaxSentence, unpricedSentence, type ComparisonRole, type PlacePrice,
+  canCompareWith, placePriceOf, priceWords, salesTaxSentence, unpricedSentence, type ComparisonRole, type PlacePrice,
 } from '../src/price-comparison.ts';
-import { countryName } from '../src/take-home-prices.ts';
+import { countryName } from '../src/territory-prices.ts';
 import { escapeHtml, flagHtml, icons } from './html.ts';
-import { usEstimateNote, type PageView } from './page-view.ts';
+import type { PageView } from './page-view.ts';
 
 export type PlacePickerPurpose = 'visitor' | 'compared';
 const rolesInOrder: ComparisonRole[] = ['visitor', 'compared', 'cheapest', 'most-expensive'];
@@ -21,7 +21,7 @@ const placePickerHtml = (purpose: PlacePickerPurpose) => `<ui-combobox id="${pur
     <ui-combobox-trigger><button type="button" id="${purpose}-place-button" class="control control-place"></button></ui-combobox-trigger>
     <ui-combobox-content hidden anchor="#${purpose}-place-button" side="top" align="start" side-offset="6" collision-padding="8" class="list list-of-places">
       <div class="list-search"><ui-combobox-input><input autofocus name="${purpose}-place" autocomplete="off" spellcheck="false" placeholder="Search countries, states and provinces…" aria-label="Search countries, states and provinces"></ui-combobox-input></div>
-      <div class="list-actions">${purpose === 'visitor' ? `<button type="button" class="text-action" data-action="use-my-location">${icons.locate}<span>Use my location</span></button><p class="list-note" role="status"></p>` : ''}<p class="list-qualifier">${usEstimateNote}</p></div>
+      <div class="list-actions">${purpose === 'visitor' ? `<button type="button" class="text-action" data-action="use-my-location">${icons.locate}<span>Use my location</span></button><p class="list-note" role="status"></p>` : ''}</div>
       <ui-combobox-empty>No place with that name.</ui-combobox-empty>
       <ui-combobox-list></ui-combobox-list>
     </ui-combobox-content>
@@ -38,7 +38,7 @@ const columnHtml = (role: ComparisonRole) => `<div class="column column-${role}"
 export const answerHtml = `<div class="band">${rolesInOrder.map(columnHtml).join('')}</div><div class="band-notice" role="status"></div>
   <ui-popover id="tax-details" presentation="auto">
     <ui-popover-content hidden class="pop-up pop-up-of-tax" side="top" align="start" side-offset="8">
-      <ui-popover-title class="pop-up-title">Prices include tax</ui-popover-title><div class="tax-details"></div>
+      <ui-popover-title class="pop-up-title"></ui-popover-title><div class="tax-details"></div>
     </ui-popover-content>
   </ui-popover>`;
 
@@ -46,9 +46,6 @@ const placeWordsHtml = (placeCode: string, name: string) => `${flagHtml(placeCod
 const emptyPlaceHtml = (words: string) => `<span class="flag flag-in-column flag-empty" aria-hidden="true">${icons.plus}</span><span class="place-words">${words}</span>`;
 const textAction = (action: string, words: string, extra = '') => `<button type="button" class="text-action" data-action="${action}"${extra}>${words}</button>`;
 
-// A US state's price adds the population-weighted average of its sales taxes, so it is an estimate; the asterisk points to the
-// map key, which says so.
-const isEstimate = (placePrice: PlacePrice) => salesTaxLabel(placePrice) === 'Population-weighted average';
 
 // What the visitor needs to know or do about their own place, when there is anything: choose a state, the price it could not find,
 // or how to see their own price on someone else's link.
@@ -67,7 +64,7 @@ function noticeHtml({ snapshot, state, comparison, openerPlaceCode }: PageView):
 
 export function drawAnswer(answer: HTMLElement, view: PageView): void {
   const { snapshot, state, comparison, roleWording, openerPlaceCode } = view;
-  const cheapestInUsDollars = comparison.prices[0].takeHomePriceInUsDollars;
+  const cheapestInUsDollars = comparison.prices[0].amountInUsDollars;
   for (const role of rolesInOrder) {
     const columnElement = answer.querySelector<HTMLElement>(`.column-${role}`)!, part = (name: string) => columnElement.querySelector<HTMLElement>(`.column-${name}`)!;
     // Amounts in the millions are shortened here, as on the map's labels; the place's pop-up has them in full.
@@ -86,19 +83,19 @@ export function drawAnswer(answer: HTMLElement, view: PageView): void {
       button.setAttribute('aria-label', `${roleWording[role]}: ${placeName(snapshot, column!.placeCode)}. Show on the map`);
     }
     // The price in the map's colour for it, then the local money in brackets. A range may break between its ends, never inside one.
-    const lowestInUsDollars = column?.placePrice.kind === 'priced' ? column.placePrice.price.takeHomePriceInUsDollars : column?.placePrice.kind === 'priced-by-state-or-province' ? column.placePrice.lowest.takeHomePriceInUsDollars : null;
+    const lowestInUsDollars = column?.placePrice.kind === 'priced' ? column.placePrice.price.amountInUsDollars : column?.placePrice.kind === 'priced-by-state-or-province' ? column.placePrice.lowest.amountInUsDollars : null;
     const swatch = lowestInUsDollars === null ? '' : `<span class="swatch" style="background:${priceColour(lowestInUsDollars, cheapestInUsDollars)}" aria-hidden="true"></span>`;
-    const estimate = column && isEstimate(column.placePrice) ? '<span class="estimate-mark" aria-label=", population-weighted average sales tax">*</span>' : '';
     const amounts = words?.inDisplayCurrency.split(' to ').map(amount => `<span class="amount">${amount}</span>`).join(' <span class="range-to">to</span> ');
     const unpriced = column && !words ? '<span class="price-missing">No price</span>' : '';
     part('price').innerHTML = amounts
-      ? `<span class="column-amount">${swatch}<span class="amounts">${amounts}${estimate}</span></span><span class="column-local">${words!.inLocalCurrency ? `(${words!.inLocalCurrency})` : ''}</span>`
+      ? `<span class="column-amount">${swatch}<span class="amounts">${amounts}</span></span><span class="column-local">${words!.inLocalCurrency ? `(${words!.inLocalCurrency})` : ''}</span>`
       : `<span class="column-amount">${unpriced}</span><span class="column-local"></span>`;
     columnElement.classList.toggle('is-empty', !column);
   }
   const notice = answer.querySelector<HTMLElement>('.band-notice')!;
   notice.innerHTML = noticeHtml(view);
   notice.hidden = !notice.innerHTML;
+  answer.querySelector('#tax-details .pop-up-title')!.textContent = view.state.pricesIncludeTax ? 'Prices include tax' : 'Prices before tax';
   answer.querySelector('.tax-details')!.innerHTML = taxDetailsHtml(view);
   for (const purpose of ['visitor', 'compared'] as const) {
     const picker = answer.querySelector<UiComboboxElement>(`#${purpose}-place`)!;
@@ -109,6 +106,7 @@ export function drawAnswer(answer: HTMLElement, view: PageView): void {
   if (listNote) listNote.textContent = state.locationProblem;
 }
 
+const dateWords = (isoDate: string) => (isoDate ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(isoDate)) : '');
 const dayWords = (unixSeconds: bigint) => new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Number(unixSeconds) * 1000));
 
 function taxDetailsHtml({ snapshot, comparison }: PageView): string {
@@ -117,9 +115,10 @@ function taxDetailsHtml({ snapshot, comparison }: PageView): string {
   const source = (name: string, url: string) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(name)}</a>`;
   const visitor = comparison.columns.find(column => column.role === 'visitor')?.placePrice;
   const visitorSentence = visitor?.kind === 'priced' ? salesTaxSentence(snapshot, visitor.price) : '';
-  const hasUsEstimates = comparison.prices.some(price => salesTaxLabel({ kind: 'priced', price }) === 'Population-weighted average');
-  return `${visitorSentence ? `<p class="tax-details-lead">${escapeHtml(visitorSentence)}</p>` : ''}${hasUsEstimates ? `<p class="tax-details-lead">* ${usEstimateNote}</p>` : ''}
-    <p>Every price is Apple’s own, from its online store in each place, and is what you pay to take the product home.</p>
+  // Before tax, each store's consumption tax is taken out of Apple's price at its standard rate, checked against the tax authority's own page.
+  const beforeTax = comparison.selection.pricesIncludeTax ? '' : `<p>Before tax, each price is Apple’s less the standard VAT, GST or consumption tax in it, at rates checked on ${escapeHtml(dateWords(comparison.snapshot.appleStores.find(store => store.consumptionTax?.checkedOn)?.consumptionTax?.checkedOn ?? ''))} against each country’s tax authority. In the United States and Canada it is Apple’s price before sales tax. Where several taxes are built into a price, as in Brazil, or a sales tax is charged on import, as in Malaysia, the price before tax isn’t known.</p>`;
+  return `${visitorSentence ? `<p class="tax-details-lead">${escapeHtml(visitorSentence)}</p>` : ''}
+    <p>Every price is Apple’s own, from its online store in each place${comparison.selection.pricesIncludeTax ? ', and is what you pay to take the product home' : ''}.</p>${beforeTax}
     <p>In most countries Apple’s price already includes tax. In the United States Apple adds sales tax at checkout, which differs by city and county, so each state’s price uses its population-weighted average sales tax (${source(usRegion.sourceName, usRegion.sourceUrl)}, rates from ${escapeHtml(usRegion.ratesEffectiveDate)}). In Canada each province’s and territory’s price adds its sales taxes (${source(canadianRegion.sourceName, canadianRegion.sourceUrl)}).</p>
     <p>Apple’s prices were read on ${dayWords(snapshot.fetchedAtUnixSeconds)}. Other currencies use exchange rates from ${source(rates.sourceName, rates.sourceUrl)}, ${dayWords(rates.publishedAtUnixSeconds)}.</p>`;
 }
@@ -139,7 +138,7 @@ export function placeListHtml(view: PageView, purpose: PlacePickerPurpose, count
     + `<span class="item-amount">${priceWords(comparison, placePrice(code), { shortenMillions: true })?.inDisplayCurrency ?? ''}</span><ui-combobox-item-indicator></ui-combobox-item-indicator></ui-combobox-item>`;
   const group = (title: string, codes: string[]) => (codes.length ? `<ui-combobox-group><ui-combobox-group-label>${title}</ui-combobox-group-label>${codes.map(item).join('')}</ui-combobox-group>` : '');
   if (purpose === 'compared') {
-    const lowestPriceInUsDollars = (code: string) => { const price = placePrice(code); return price.kind === 'priced' ? price.price.takeHomePriceInUsDollars : price.kind === 'priced-by-state-or-province' ? price.lowest.takeHomePriceInUsDollars : Infinity; };
+    const lowestPriceInUsDollars = (code: string) => { const price = placePrice(code); return price.kind === 'priced' ? price.price.amountInUsDollars : price.kind === 'priced-by-state-or-province' ? price.lowest.amountInUsDollars : Infinity; };
     const codes = [...countryCodes, ...regionCodes].filter(code => canCompareWith(snapshot, comparison.product, comparison.prices, state.visitorPlaceCode, code))
       .sort((a, b) => lowestPriceInUsDollars(a) - lowestPriceInUsDollars(b) || byName(a, b));
     const noComparison = state.comparedPlaceCode ? '<ui-combobox-item value="none" label="No comparison"><span class="item-words">No comparison</span></ui-combobox-item>' : '';

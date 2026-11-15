@@ -1,5 +1,5 @@
 import type { PriceSnapshot } from './generated/apple_prices/v1/price_snapshot_pb.js';
-import { countryName } from './take-home-prices.ts';
+import { countryName } from './territory-prices.ts';
 
 // A place is a country ("NL") or one of the states, provinces and territories Apple taxes separately ("US-OR", "CA-QC").
 export const countriesTaxedByStateOrProvince = ['US', 'CA'];

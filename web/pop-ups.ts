@@ -28,7 +28,8 @@ export function placePopUpHtml({ snapshot, state, comparison, openerPlaceCode, v
   if (price.kind === 'priced') {
     lines.push(differenceFromVisitorWords(comparison, price.price, visitorInComparisons), isVisitorPlace ? (openerPlaceCode ? 'This is the place the link shows.' : 'This is where you are.') : '', salesTaxSentence(snapshot, price.price));
   } else if (price.kind === 'priced-by-state-or-province') {
-    lines.push(`It depends on the ${stateOrProvinceWords(placeCode).one}.${placeCode === 'US' ? ' Sales tax is the population-weighted average for each state.' : ''}`);
+    const average = placeCode === 'US' && state.pricesIncludeTax ? ' Sales tax is the population-weighted average for each state.' : '';
+    lines.push(`It depends on the ${stateOrProvinceWords(placeCode).one}.${average}`);
   }
   const body = words
     ? `<p class="pop-up-price"><span class="amount">${words.inDisplayCurrency}</span>${inLocalMoney}</p>${lines.filter(Boolean).map(line => `<p class="pop-up-line">${escapeHtml(line)}</p>`).join('')}`

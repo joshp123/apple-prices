@@ -42,7 +42,7 @@ function view(): PageView {
 
 // The address is the share link: what is shown, nothing about which list is open.
 const stateFromAddress = (): PageState => ({ ...selectionFromShareLink(snapshot, new URL(location.href)), popUpPlaceCode: null, locationProblem: '' });
-const chosenPrices = () => [state.productId, state.configurationId, state.visitorPlaceCode, state.comparedPlaceCode, state.displayCurrencyCode].join(' ');
+const chosenPrices = () => [state.productId, state.configurationId, state.visitorPlaceCode, state.comparedPlaceCode, state.displayCurrencyCode, state.pricesIncludeTax].join(' ');
 
 function announce(message: string): void {
   element('#announcer').textContent = message;
@@ -59,6 +59,8 @@ function drawEverything(): void {
   drawAnswer(answer, view());
   priceMap.colourPlaces(view());
   priceMap.buildLabels(view());
+  const taxSwitch = mapBox.querySelector<HTMLElement & { checked: boolean }>('#tax-switch')!;
+  if (taxSwitch.checked !== state.pricesIncludeTax) taxSwitch.checked = state.pricesIncludeTax;
   if (state.popUpPlaceCode) popUps.querySelector('.pop-up-of-place')!.innerHTML = placePopUpHtml(view(), state.popUpPlaceCode);
   document.title = `${comparison.product.productName}: what it costs in each country`;
 }
@@ -154,6 +156,10 @@ function listenToControls(): void {
   on<string>('#configuration-select', 'valuechange', configurationId => {
     change({ configurationId });
     announce(specLine(comparison.product, comparison.configuration));
+  });
+  on<boolean>('#tax-switch', 'checkedchange', pricesIncludeTax => {
+    change({ pricesIncludeTax });
+    announce(pricesIncludeTax ? 'Prices include tax' : 'Prices before tax');
   });
   on<string>('#currency-select', 'valuechange', displayCurrencyCode => {
     change({ displayCurrencyCode });
@@ -274,8 +280,8 @@ try {
   bar.innerHTML = productBarHtml;
   answer.innerHTML = answerHtml;
   popUps.innerHTML = popUpsHtml;
-  listenToControls();
   priceMap = createPriceMap(mapBox, mapPlaces, placeCode => (placeCode ? openPlacePopUp(placeCode) : closePlacePopUp()), () => setMapArea('moved-by-hand'));
+  listenToControls();
   drawEverything();
   setMapArea(mapArea);
   fitMapToWhatIsUncovered();

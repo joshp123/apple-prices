@@ -241,6 +241,13 @@ export declare type AppleStore = Message<"apple_prices.v1.AppleStore"> & {
    * @generated from field: repeated string product_ids_not_sold = 8;
    */
   productIdsNotSold: string[];
+
+  /**
+   * The consumption tax in this store's shelf price, which a price before tax takes out. Unset where the store adds tax at checkout.
+   *
+   * @generated from field: apple_prices.v1.ConsumptionTax consumption_tax = 9;
+   */
+  consumptionTax?: ConsumptionTax | undefined;
 };
 
 /**
@@ -248,6 +255,55 @@ export declare type AppleStore = Message<"apple_prices.v1.AppleStore"> & {
  * Use `create(AppleStoreSchema)` to create a new message.
  */
 export declare const AppleStoreSchema: GenMessage<AppleStore>;
+
+/**
+ * One country's standard VAT, GST or consumption tax, as checked against a first-party source.
+ *
+ * @generated from message apple_prices.v1.ConsumptionTax
+ */
+export declare type ConsumptionTax = Message<"apple_prices.v1.ConsumptionTax"> & {
+  /**
+   * Unset where no single rate can be taken out of the shelf price, for the reason given.
+   *
+   * @generated from field: optional double percent = 1;
+   */
+  percent?: number | undefined;
+
+  /**
+   * As the country calls it: VAT, GST, consumption tax.
+   *
+   * @generated from field: string tax_name = 2;
+   */
+  taxName: string;
+
+  /**
+   * @generated from field: string why_no_single_rate = 3;
+   */
+  whyNoSingleRate: string;
+
+  /**
+   * @generated from field: string source_name = 4;
+   */
+  sourceName: string;
+
+  /**
+   * @generated from field: string source_url = 5;
+   */
+  sourceUrl: string;
+
+  /**
+   * ISO 8601 date the rate was last checked as current.
+   *
+   * @generated from field: string checked_on = 6;
+   */
+  checkedOn: string;
+};
+
+/**
+ * Describes the message apple_prices.v1.ConsumptionTax.
+ * Use `create(ConsumptionTaxSchema)` to create a new message.
+ */
+export declare const ConsumptionTaxSchema: GenMessage<ConsumptionTax>;
 
 /**
  * @generated from message apple_prices.v1.ShelfPrice

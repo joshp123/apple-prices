@@ -190,7 +190,6 @@ body { display: block; position: relative; }
 .amounts { text-align: end; }
 .amounts .amount { font-size: var(--text-strong); font-weight: 600; letter-spacing: -0.01em; }
 .range-to { font-size: var(--text-label); color: var(--ink-2); }
-.estimate-mark { font-weight: 500; color: var(--ink-2); }
 .swatch { display: inline-block; flex: none; inline-size: 8px; block-size: 8px; border-radius: 50%; align-self: center; box-shadow: inset 0 0 0 0.5px var(--flag-edge); }
 .column-local { font-size: var(--text-label); color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .price-missing { font-size: var(--text-label); color: var(--ink-2); }
@@ -235,10 +234,15 @@ body { display: block; position: relative; }
 @media (hover: hover) and (pointer: fine) { .map-control:hover, .key-info:hover { color: var(--ink-2); } }
 /* The key: one line of the colours and their prices, the hatch, and the way to how prices are worked out, on a backdrop of sea. */
 .map-key { position: absolute; inset-block-end: calc(var(--covered-bottom, 0px) + var(--space-2)); inset-inline-start: var(--float-gap); max-inline-size: calc(100% - 2 * var(--float-gap) - 48px); display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 2px var(--space-2); border-radius: var(--radius-control); background: color-mix(in oklab, var(--sea) 88%, transparent); font-size: var(--text-small); color: var(--ink-2); pointer-events: none; }
-.key-line { display: flex; align-items: center; gap: var(--space-2); white-space: nowrap; }
+.key-line { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--space-2); white-space: nowrap; }
 .map-key .amount { color: var(--ink); font-weight: 500; }
 .key-band { inline-size: 96px; block-size: 6px; border-radius: 3px; box-shadow: inset 0 0 0 0.5px var(--flag-edge); }
 .key-no-price { display: inline-flex; align-items: center; gap: var(--space-1); margin-inline-start: var(--space-2); }
+/* The tax switch: the kit's switch, small enough for the key's line. */
+.key-colours { display: contents; }
+.key-tax { display: inline-flex; align-items: center; gap: 6px; margin-inline-start: var(--space-2); font: inherit; color: var(--ink); white-space: nowrap; pointer-events: auto; cursor: pointer; }
+.key-tax [data-slot="switch"] { --ui-spacing: 0.17rem; position: relative; }
+.key-tax [data-slot="switch"]::before { content: ""; position: absolute; inset: -12px -6px; }
 .key-info { position: relative; display: grid; place-items: center; inline-size: 20px; block-size: 20px; color: var(--ink-2); pointer-events: auto; }
 .key-info .icon { inline-size: 14px; block-size: 14px; }
 .key-info::before { inset: -12px; }
@@ -264,7 +268,6 @@ body { display: block; position: relative; }
 .list-search input { inline-size: 100%; block-size: var(--control-height); padding-inline: var(--space-3); border: 1px solid var(--edge); border-radius: var(--radius-control); background: var(--raised); }
 .list-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); padding: var(--space-1) var(--space-2) var(--space-2); font-size: var(--text-label); }
 .list-note { font-size: var(--text-label); color: var(--ink-2); }
-.list-qualifier { flex-basis: 100%; font-size: var(--text-small); color: var(--ink-2); }
 .list-note:empty { display: none; }
 .flag-in-list { --flag-width: 24px; }
 
@@ -362,7 +365,11 @@ body { display: block; position: relative; }
   .key-no-price { margin-inline-start: 2px; }
   .map-label { --flag-width: 20px; font-size: 11px; }
   .map-label::before { content: ""; position: absolute; inset: -6px -2px; }
-  .key-band { inline-size: 48px; }
+  .key-band { inline-size: 30px; }
+  .key-no-price-detail { display: none; }
+  .key-line { column-gap: 5px; }
+  .key-tax { gap: 4px; margin-inline-start: 2px; }
+  .key-tax [data-slot="switch"] { --ui-spacing: 0.14rem; }
   .dialog-body { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); padding: var(--space-3) var(--page-margin) max(var(--space-4), env(safe-area-inset-bottom)); }
   .dialog-head { padding-inline-start: var(--page-margin); }
   .list-search input { font-size: 16px; }

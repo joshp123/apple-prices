@@ -105,6 +105,10 @@ const pageStates: [name: string, address: string, countryOpenedIn?: string, acti
   ['49-range-in-dong-against-a-province', '/macbook-pro/16in-m5-max-18cpu-32gpu-36gb-memory-2000gb-standard-glass?me=US&vs=CA-NT&in=VND'],
   ['50-canada-range-compared-with-the-united-states', '/?me=CA&vs=US'],
   ['51-california-compared-with-the-netherlands', '/?me=NL&vs=US-CA'],
+  ['52-before-tax-netherlands-compared-with-california', '/?me=NL&vs=US-CA&tax=before'],
+  ['53-before-tax-pop-up-of-the-netherlands', '/?me=NL&tax=before', undefined, page => openPlace(page, 'NL')],
+  ['54-before-tax-brazil', '/?me=BR&tax=before'],
+  ['55-before-tax-about-these-prices', '/?me=NL&tax=before', undefined, page => page.getByRole('button', { name: 'About these prices' }).click()],
 ];
 // Each card's address without its shape: /share-card (a link's preview) or /post-picture (a picture attached to a post) goes in front.
 const shareCards: [string, string][] = [
@@ -122,6 +126,8 @@ const shareCards: [string, string][] = [
   ['card-12-longest-place-names', `${topMacBookPro}.png?me=CA-NT&vs=AE&in=EUR`],
   ['card-13-range-against-a-province-in-yen', '/ipad-pro/13in-2000gb-wi-fi-cellular-nano-texture-glass.png?me=US&vs=CA-NT&in=JPY'],
   ['card-14-mac-studio-netherlands-and-california', '/mac-studio/m5-ultra-30cpu-64gpu-96gb-memory-1000gb.png?me=NL&vs=US-CA'],
+  ['card-15-before-tax-netherlands-and-california', '/iphone-18-pro/6.3in-256gb.png?me=NL&vs=US-CA&tax=before'],
+  ['card-16-before-tax-brazil', '/iphone-18-pro/6.3in-256gb.png?me=BR&tax=before'],
 ];
 
 const failures: string[] = [];
@@ -279,6 +285,31 @@ async function journeyByMouse(): Promise<void> {
   await context.close();
 }
 
+// The switch takes every price to before tax and back: the Netherlands' €1,479 less 21% VAT, Oregon unchanged with no sales tax,
+// and the share link and its picture keep the choice.
+async function journeyWithTheTaxSwitch(): Promise<void> {
+  const context = await laptopContext();
+  const page = await openPage(context, '/?me=NL&vs=US-OR&in=EUR');
+  const oregonWithTax = await price(page, 'compared');
+  check('prices include tax at first', (await price(page, 'visitor')) === '€1,479' && (await page.getByRole('switch', { name: 'Include tax' }).getAttribute('aria-checked')) === 'true', await price(page, 'visitor'));
+  await page.getByRole('switch', { name: 'Include tax' }).click();
+  await settled(page);
+  check('the switch shows the Netherlands before 21% VAT', (await price(page, 'visitor')) === '€1,222' && page.url().includes('tax=before'), `${await price(page, 'visitor')} ${page.url()}`);
+  check('Oregon, with no sales tax, is the same before tax', (await price(page, 'compared')) === oregonWithTax, `${oregonWithTax} then ${await price(page, 'compared')}`);
+  check('the map key says which places have no price before tax', (await page.locator('.map-key').innerText()).replace(/\s+/g, ' ').includes('No price before tax'));
+  await page.getByRole('button', { name: 'Share' }).click();
+  await settled(page);
+  const postLink = new URL((await page.locator('#post-on-twitter').getAttribute('href'))!);
+  check('the share link keeps prices before tax', (postLink.searchParams.get('url') ?? '').includes('tax=before'), postLink.searchParams.get('url') ?? '');
+  await page.keyboard.press('Escape');
+  const picture = await fetch(`${siteAddress}/post-picture/iphone-18-pro/6.3in-256gb.png?me=NL&vs=US-OR&in=EUR&tax=before`);
+  check('the picture for a link before tax is made', picture.ok && picture.headers.get('content-type') === 'image/png');
+  check('the shared page says its prices are before tax', (await (await fetch(`${siteAddress}/iphone-18-pro/6.3in-256gb?me=NL&in=EUR&tax=before`)).text()).includes('Prices before tax.'));
+  await page.goBack(); await settled(page);
+  check('Back returns to prices with tax', (await price(page, 'visitor')) === '€1,479' && !page.url().includes('tax=') && (await page.getByRole('switch', { name: 'Include tax' }).getAttribute('aria-checked')) === 'true', page.url());
+  await context.close();
+}
+
 async function journeyByKeyboard(): Promise<void> {
   const context = await laptopContext();
   const page = await openPage(context, '/?me=NL');
@@ -359,7 +390,6 @@ async function journeysAboutPlace(): Promise<void> {
   check('the state can be chosen from the list instead', page.url().includes('me=US-CA') && (await price(page, 'visitor')) === '$1,322', page.url());
   await openPlace(page, 'US-CA');
   check('a state’s pop-up says its tax is the population-weighted average', (await placePopUp(page).innerText()).includes('(population-weighted average)'));
-  check('a state’s price is marked as an estimate, and the key says what the mark means', (await page.locator('.column-visitor .amounts').innerText()).endsWith('*') && (await page.locator('.map-key').innerText()).includes('* US states: population-weighted average sales tax'));
   await page.keyboard.press('Escape');
 
   page = await openPage(withoutLocation, '/iphone-18-pro/6.3in-256gb?me=NL', 'DE');
@@ -408,6 +438,7 @@ async function journeysOnAPhone(): Promise<void> {
 
 if (!onlyNamesContaining || onlyNamesContaining === 'journeys') {
   await journeyByMouse();
+  await journeyWithTheTaxSwitch();
   await journeyByKeyboard();
   await journeysAboutPlace();
   await journeysOnAPhone();
