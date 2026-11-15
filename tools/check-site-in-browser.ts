@@ -106,20 +106,21 @@ const pageStates: [name: string, address: string, countryOpenedIn?: string, acti
   ['50-canada-range-compared-with-the-united-states', '/?me=CA&vs=US'],
   ['51-california-compared-with-the-netherlands', '/?me=NL&vs=US-CA'],
 ];
+// Each card's address without its shape: /share-card (a link's preview) or /post-picture (a picture attached to a post) goes in front.
 const shareCards: [string, string][] = [
-  ['card-01-netherlands', '/share-card/iphone-18-pro/6.3in-256gb.png?me=NL'],
-  ['card-02-with-comparison', '/share-card/iphone-18-pro/6.3in-256gb.png?me=NL&vs=JP'],
-  ['card-03-palestine', '/share-card/iphone-18-pro/6.3in-256gb.png?me=PS'],
-  ['card-04-california-and-ontario', '/share-card/iphone-18-pro/6.3in-256gb.png?me=US-CA&vs=CA-ON'],
-  ['card-05-united-states-no-state', '/share-card/iphone-18-pro/6.3in-256gb.png?me=US&vs=NL'],
-  ['card-06-oregon', '/share-card/iphone-18-pro/6.3in-256gb.png?me=US-OR'],
-  ['card-07-macbook-pro-dong', `/share-card${topMacBookPro}.png?me=VN&in=VND&vs=KR`],
-  ['card-08-ipad-pro-euros', '/share-card/ipad-pro/11in-256gb-wi-fi-standard-glass.png?me=NL&in=EUR&vs=GB'],
-  ['card-09-airtag', '/share-card/airtag/1-pack.png?me=NL'],
-  ['card-10-no-visitor', '/share-card/iphone-18-pro/6.3in-256gb.png'],
-  ['card-11-macbook-pro-california-and-united-kingdom', '/share-card/macbook-pro/14in-m6-12cpu-12gpu-16gb-memory-1000gb-standard-glass.png?me=US-CA&vs=GB'],
-  ['card-12-longest-place-names', `/share-card${topMacBookPro}.png?me=CA-NT&vs=AE&in=EUR`],
-  ['card-13-range-against-a-province-in-yen', '/share-card/ipad-pro/13in-2000gb-wi-fi-cellular-nano-texture-glass.png?me=US&vs=CA-NT&in=JPY'],
+  ['card-01-netherlands', '/iphone-18-pro/6.3in-256gb.png?me=NL'],
+  ['card-02-with-comparison', '/iphone-18-pro/6.3in-256gb.png?me=NL&vs=JP'],
+  ['card-03-palestine', '/iphone-18-pro/6.3in-256gb.png?me=PS'],
+  ['card-04-california-and-ontario', '/iphone-18-pro/6.3in-256gb.png?me=US-CA&vs=CA-ON'],
+  ['card-05-united-states-no-state', '/iphone-18-pro/6.3in-256gb.png?me=US&vs=NL'],
+  ['card-06-oregon', '/iphone-18-pro/6.3in-256gb.png?me=US-OR'],
+  ['card-07-macbook-pro-dong', `${topMacBookPro}.png?me=VN&in=VND&vs=KR`],
+  ['card-08-ipad-pro-euros', '/ipad-pro/11in-256gb-wi-fi-standard-glass.png?me=NL&in=EUR&vs=GB'],
+  ['card-09-airtag', '/airtag/1-pack.png?me=NL'],
+  ['card-10-no-visitor', '/iphone-18-pro/6.3in-256gb.png'],
+  ['card-11-macbook-pro-california-and-united-kingdom', '/macbook-pro/14in-m6-12cpu-12gpu-16gb-memory-1000gb-standard-glass.png?me=US-CA&vs=GB'],
+  ['card-12-longest-place-names', `${topMacBookPro}.png?me=CA-NT&vs=AE&in=EUR`],
+  ['card-13-range-against-a-province-in-yen', '/ipad-pro/13in-2000gb-wi-fi-cellular-nano-texture-glass.png?me=US&vs=CA-NT&in=JPY'],
 ];
 
 const failures: string[] = [];
@@ -166,16 +167,26 @@ async function photographEveryState(): Promise<void> {
   }
 }
 
+// Both shapes of each card, then the three ways a phone's Twitter feed shows them, about 360 pixels wide: the link's preview,
+// the picture posted alone, and the picture as one of two in a post.
 async function photographShareCards(): Promise<void> {
-  const context = await browser.newContext({ viewport: { width: 400, height: 225 }, deviceScaleFactor: 2 });
+  const context = await browser.newContext({ viewport: { width: 360, height: 900 }, deviceScaleFactor: 2 });
   for (const [name, address] of shareCards) {
     if (!name.includes(onlyNamesContaining)) continue;
-    const response = await fetch(siteAddress + address), bytes = Buffer.from(await response.arrayBuffer());
-    if (!response.ok) throw new Error(`${name}: ${response.status}`);
-    await writeFile(`${photographFolder}/${name}.png`, bytes);
+    const dataUrls: Record<string, string> = {};
+    for (const shape of ['share-card', 'post-picture']) {
+      const response = await fetch(`${siteAddress}/${shape}${address}`), bytes = Buffer.from(await response.arrayBuffer());
+      if (!response.ok) throw new Error(`${name} ${shape}: ${response.status}`);
+      await writeFile(`${photographFolder}/${name}-${shape}.png`, bytes);
+      dataUrls[shape] = `data:image/png;base64,${bytes.toString('base64')}`;
+    }
+    const frame = (style: string, dataUrl: string) => `<div style="${style};border-radius:12px;overflow:hidden;border:1px solid #cfd9de"><img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;display:block"></div>`;
     const page = await context.newPage();
-    await page.setContent(`<body style="margin:0"><img src="data:image/png;base64,${bytes.toString('base64')}" style="width:400px;display:block">`);
-    await page.screenshot({ path: `${photographFolder}/${name}-at-400-wide.png` });
+    await page.setContent(`<body style="margin:0;padding:12px;font:13px system-ui;color:#536471;display:grid;gap:8px;width:336px">
+      Link preview${frame('aspect-ratio:1.91', dataUrls['share-card'])}
+      Picture posted alone${frame('aspect-ratio:7/8', dataUrls['post-picture'])}
+      One of two pictures<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px">${frame('aspect-ratio:7/8', dataUrls['post-picture'])}<div style="aspect-ratio:7/8;background:#cfd9de;border-radius:12px"></div></div></body>`);
+    await page.screenshot({ path: `${photographFolder}/${name}-in-twitter.png`, fullPage: true });
     await page.close();
   }
   await context.close();
@@ -248,7 +259,7 @@ async function journeyByMouse(): Promise<void> {
   check('the post carries the visitor’s words exactly', (await postLink()).searchParams.get('text') === '  My own words, kept as typed  ');
   await page.locator('#share-text').fill('');
   check('an empty post stays empty', !(await postLink()).searchParams.has('text') && (await postLink()).searchParams.get('url') === shareAddress);
-  check('the picture in the dialog is the Worker’s card', await page.locator('.share-card').evaluate(async (image: HTMLImageElement) => { await image.decode(); return image.naturalWidth === 1600; }));
+  check('the picture in the dialog is the Worker’s card', await page.locator('.share-card').evaluate(async (image: HTMLImageElement) => { await image.decode(); return image.naturalWidth === 1400; }));
   await page.getByRole('button', { name: 'Copy link' }).click();
   check('Copy link puts the link on the clipboard', await page.evaluate(() => navigator.clipboard.readText()) === shareAddress);
   await page.getByRole('button', { name: 'Copy picture' }).click();

@@ -18,13 +18,19 @@ export function shareLinkPath(selection: Selection): string {
   return `/${selection.productId}/${selection.configurationId}${query(selection)}`;
 }
 
+// The card in the shape of a link's preview.
 export function shareCardPath(selection: Selection): string {
   return `/share-card/${selection.productId}/${selection.configurationId}.png${query(selection)}`;
 }
 
+// The card in the shape of a picture attached to a post.
+export function postPicturePath(selection: Selection): string {
+  return `/post-picture/${selection.productId}/${selection.configurationId}.png${query(selection)}`;
+}
+
 // Reads a share link, or a share card's address. Anything the snapshot does not know falls back to the first product, its base model, no place and US dollars.
 export function selectionFromShareLink(snapshot: PriceSnapshot, link: URL): Selection {
-  const [productId, configurationId] = link.pathname.replace(/^\/share-card/, '').replace(/\.png$/, '').split('/').filter(Boolean).map(decodeURIComponent);
+  const [productId, configurationId] = link.pathname.replace(/^\/(share-card|post-picture)/, '').replace(/\.png$/, '').split('/').filter(Boolean).map(decodeURIComponent);
   const product = snapshot.products.find(candidate => candidate.productId === productId) ?? snapshot.products[0];
   const configuration = product.configurations.find(candidate => candidate.configurationId === configurationId) ?? product.configurations[0];
   const placeCodeIn = (parameter: string) => {

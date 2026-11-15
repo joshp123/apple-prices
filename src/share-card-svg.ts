@@ -13,10 +13,14 @@ export type ShareCardPictures = {
   flagDataUrls: Record<string, string>;
 };
 
-export const shareCardWidth = 1600, shareCardHeight = 900;
+// Two shapes of the same card, each one Twitter shows whole. A link's preview is 2:1, with the photo beside the rows; Twitter may trim
+// it to 1.91:1, so the sides keep a wider margin. A picture attached to a post is 7:8, the shape of each tile when two pictures share a
+// post, which Twitter also shows whole on its own; there the photo stands above the rows.
+export type ShareCardShape = { width: number; height: number; sideMargin: number; photoAboveRows: boolean };
+export const linkPreviewShape: ShareCardShape = { width: 1800, height: 900, sideMargin: 72, photoAboveRows: false };
+export const postPictureShape: ShareCardShape = { width: 1400, height: 1600, sideMargin: 64, photoAboveRows: true };
 const paperColour = shareCardPaperColour, inkColour = '#1d1d1f', softInkColour = '#5f5f67', photoTileColour = '#f2f2f4';
-// X crops link pictures to 1.91:1, so nothing sits in the top or bottom 44 pixels.
-const sideMargin = 48, topOfContent = 50, footerBaseline = 850;
+const topOfContent = 50, footerBelowBottom = 50;
 // In a timeline the card is about 400 pixels wide, a quarter of its size, so no line of it is set smaller than this: 12 pixels there.
 // Text that is too wide wraps; it never shrinks below this.
 const smallestFontSize = 48;
@@ -123,10 +127,10 @@ const softStyle: TextStyle = { fontSize: smallestFontSize, fontWeight: 400, lett
 const amountStyle: TextStyle = { fontSize: 64, fontWeight: 700, letterSpacingEm: -0.035 };
 const nameStyle: TextStyle = { fontSize: 54, fontWeight: 600, letterSpacingEm: -0.02 };
 const unpricedStyle: TextStyle = { fontSize: smallestFontSize, fontWeight: 600, letterSpacingEm: -0.015 };
-const titleLineHeight = 76, specLineHeight = 52, gapBelowSpecs = 24, gapBesidePhoto = 48, bodyBottom = footerBaseline - 58;
+const titleLineHeight = 76, specLineHeight = 52, gapBelowSpecs = 24, gapBesidePhoto = 48, gapBelowPhoto = 32, footerAboveBodyBottom = 58;
 const priceLine = 58, detailLine = 54, footnoteLine = 52, largestRowPadding = 18;
 const flagHeight = 52, flagWidth = flagHeight * 1.5, flagGap = 24, columnGap = 36;
-const largestPhotoTile = 600, smallestPhotoTile = 200;
+const largestPhotoTile = 600, smallestPhotoTile = 200, smallestPhotoTileAboveRows = 360;
 const estimateFootnote = '* Population-weighted average sales tax';
 
 const withSize = (style: TextStyle, fontSize: number): TextStyle => ({ ...style, fontSize });
@@ -152,9 +156,10 @@ function rowWords(comparison: PriceComparison, row: CardRow): RowWords {
 
 const widest = (texts: string[], style: TextStyle) => Math.max(0, ...texts.filter(Boolean).map(text => textWidth(text, style)));
 
-export function shareCardSvg(comparison: PriceComparison, pictures: ShareCardPictures): string {
+export function shareCardSvg(comparison: PriceComparison, pictures: ShareCardPictures, shape: ShareCardShape): string {
   const { product, configuration } = comparison;
-  const textRight = shareCardWidth - sideMargin, fullWidth = textRight - sideMargin;
+  const { width, height, sideMargin, photoAboveRows } = shape;
+  const textRight = width - sideMargin, fullWidth = textRight - sideMargin, footerBaseline = height - footerBelowBottom, bodyBottom = footerBaseline - footerAboveBodyBottom;
   const title = fitted(product.productName, titleStyle, fullWidth);
   const specLines = wrappedLines(specLine(product, configuration), softStyle, fullWidth);
   const bodyTop = topOfContent + titleLineHeight + specLines.length * specLineHeight + gapBelowSpecs, bodyHeight = bodyBottom - bodyTop;
@@ -167,21 +172,27 @@ export function shareCardSvg(comparison: PriceComparison, pictures: ShareCardPic
   const narrowestName = widest(rows.map(row => row.name), withSize(nameStyle, smallestFontSize));
   const narrowestPrice = Math.max(...rows.map(row => textWidth(row.role, softStyle) + columnGap + (row.price ? textWidth(row.price, withSize(amountStyle, smallestFontSize)) : textWidth(row.unpriced, unpricedStyle) / 2)));
   const rowsNeed = flagWidth + flagGap + Math.max(narrowestName + detailColumns, narrowestPrice);
-  const tileSize = Math.max(smallestPhotoTile, Math.min(largestPhotoTile, bodyHeight, fullWidth - gapBesidePhoto - rowsNeed));
-  const textLeft = sideMargin + tileSize + gapBesidePhoto, nameLeft = textLeft + flagWidth + flagGap, rowWidth = textRight - nameLeft;
+  const footnoteHeight = hasEstimate ? footnoteLine + 8 : 0;
+  const rowHeight = priceLine + detailLine;
+
+  // Beside the rows the photo is a square that gives up width to them; above the rows it spans the card and takes the height they leave.
+  const rowsHeightAtMost = rows.length * (rowHeight + largestRowPadding * 2) + footnoteHeight;
+  const tile = photoAboveRows
+    ? { left: sideMargin, top: bodyTop, width: fullWidth, height: Math.max(smallestPhotoTileAboveRows, bodyHeight - gapBelowPhoto - rowsHeightAtMost) }
+    : (size => ({ left: sideMargin, top: bodyTop, width: size, height: size }))(Math.max(smallestPhotoTile, Math.min(largestPhotoTile, bodyHeight, fullWidth - gapBesidePhoto - rowsNeed)));
+  const textLeft = photoAboveRows ? sideMargin : sideMargin + tile.width + gapBesidePhoto, rowsTop = photoAboveRows ? tile.top + tile.height + gapBelowPhoto : bodyTop;
+  const nameLeft = textLeft + flagWidth + flagGap, rowWidth = textRight - nameLeft;
   const nameAt = withSize(nameStyle, Math.min(...rows.map(row => fitted(row.name, nameStyle, rowWidth - detailColumns).fontSize)));
   const localRight = textRight - (differenceColumn ? differenceColumn + columnGap : 0);
 
   // Every row is the same height, with the same air above and below; the spare height is shared out as that air.
-  const footnoteHeight = hasEstimate ? footnoteLine + 8 : 0;
-  const rowHeight = priceLine + detailLine;
-  const rowPadding = Math.max(0, Math.min(largestRowPadding, (bodyHeight - footnoteHeight - rows.length * rowHeight) / (rows.length * 2)));
-  const photoBoxSize = tileSize * 5 / 6, photoLeft = sideMargin + (tileSize - photoBoxSize) / 2, photoTop = bodyTop + (tileSize - photoBoxSize) / 2;
+  const rowPadding = Math.max(0, Math.min(largestRowPadding, (bodyBottom - rowsTop - footnoteHeight - rows.length * rowHeight) / (rows.length * 2)));
+  const photoBoxSize = Math.min(tile.width, tile.height) * 5 / 6, photoLeft = tile.left + (tile.width - photoBoxSize) / 2, photoTop = tile.top + (tile.height - photoBoxSize) / 2;
 
   let svg = textLine(product.productName, sideMargin, topOfContent, titleLineHeight, title);
   specLines.forEach((line, index) => { svg += textLine(line, sideMargin, topOfContent + titleLineHeight + index * specLineHeight, specLineHeight, softStyle); });
   rows.forEach((row, index) => {
-    const top = bodyTop + index * (rowHeight + rowPadding * 2) + rowPadding;
+    const top = rowsTop + index * (rowHeight + rowPadding * 2) + rowPadding;
     if (index) svg += `<rect x="${textLeft}" y="${(top - rowPadding - 1).toFixed(1)}" width="${textRight - textLeft}" height="2" fill="${inkColour}" fill-opacity="0.1"/>`;
     const first = baselineOf(top, priceLine, amountStyle), second = baselineOf(top + priceLine, detailLine, nameAt);
     svg += flag(pictures, row.row.placeCode, textLeft, first - flagHeight + 6, flagHeight);
@@ -196,11 +207,11 @@ export function shareCardSvg(comparison: PriceComparison, pictures: ShareCardPic
         .forEach((line, lineIndex) => { svg += textOnBaseline(line, textRight, lineIndex ? second : first, unpricedStyle, 'end'); });
     }
   });
-  if (hasEstimate) svg += textOnBaseline(estimateFootnote, textLeft, baselineOf(bodyTop + rows.length * (rowHeight + rowPadding * 2) + 8, footnoteLine, softStyle), softStyle);
+  if (hasEstimate) svg += textOnBaseline(estimateFootnote, textLeft, baselineOf(rowsTop + rows.length * (rowHeight + rowPadding * 2) + 8, footnoteLine, softStyle), softStyle);
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${shareCardWidth}" height="${shareCardHeight}" viewBox="0 0 ${shareCardWidth} ${shareCardHeight}">
-<rect width="${shareCardWidth}" height="${shareCardHeight}" fill="${paperColour}"/>
-<rect x="${sideMargin}" y="${bodyTop}" width="${tileSize}" height="${tileSize}" rx="${tileSize / 15}" fill="${photoTileColour}"/>
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+<rect width="${width}" height="${height}" fill="${paperColour}"/>
+<rect x="${tile.left}" y="${tile.top}" width="${tile.width}" height="${tile.height}" rx="${Math.min(tile.width, tile.height) / 15}" fill="${photoTileColour}"/>
 ${productPhoto(pictures, photoLeft, photoTop, photoBoxSize)}
 ${svg}
 ${textLine('appleprices.jjpcodes.com', sideMargin, footerBaseline - 50, 50, { fontSize: smallestFontSize, fontWeight: 600, letterSpacingEm: -0.02 })}

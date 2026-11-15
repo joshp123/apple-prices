@@ -5,7 +5,7 @@ import '@ui-sdk/web/popover';
 import '@ui-sdk/web/textarea';
 import { placeName, stateOrProvinceWords } from '../src/places.ts';
 import { canCompareWith, differenceFromVisitorWords, placePriceOf, priceWords, salesTaxSentence, shareSentence, unpricedSentence } from '../src/price-comparison.ts';
-import { shareCardPath, shareLinkPath } from '../src/share-link.ts';
+import { postPicturePath, shareLinkPath } from '../src/share-link.ts';
 import { escapeHtml, flagHtml, icons } from './html.ts';
 import type { PageView } from './page-view.ts';
 
@@ -58,11 +58,11 @@ export function postOnTwitterLink(view: PageView, text: string): string {
 }
 
 export function shareDialogHtml(view: PageView): string {
-  const text = view.state.shareTextAsTyped ?? shareTextSuggested(view), cardPath = shareCardPath(view.state);
+  const text = view.state.shareTextAsTyped ?? shareTextSuggested(view), picturePath = postPicturePath(view.state);
   return `<div class="dialog-head"><ui-dialog-title class="dialog-title">Share these prices</ui-dialog-title>
       <ui-dialog-close><button type="button" class="icon-button" aria-label="Close">${icons.close}</button></ui-dialog-close></div>
     <div class="dialog-body">
-      <img class="share-card" src="${escapeHtml(cardPath)}" width="1600" height="900" alt="The picture that goes with your post: ${escapeHtml(shareTextSuggested(view))}">
+      <img class="share-card" src="${escapeHtml(picturePath)}" width="1400" height="1600" alt="The picture that goes with your post: ${escapeHtml(shareTextSuggested(view))}">
       <div class="share-side">
         <label class="field-label" for="share-text">Your post</label>
         <ui-textarea><textarea id="share-text" name="post" rows="5" autocomplete="off" data-input="share-text">${escapeHtml(text)}</textarea></ui-textarea>
@@ -71,7 +71,7 @@ export function shareDialogHtml(view: PageView): string {
           <a class="control control-primary" id="post-on-twitter" href="${escapeHtml(postOnTwitterLink(view, text))}" target="_blank" rel="noopener">Post on Twitter</a>
           ${actionButton('Copy link', 'data-action="copy-share-link"')}
           ${actionButton('Copy picture', 'data-action="copy-share-card"')}
-          <a class="control" href="${escapeHtml(cardPath)}" download="apple-prices-${view.state.productId}.png">Save picture</a>
+          <a class="control" href="${escapeHtml(picturePath)}" download="apple-prices-${view.state.productId}.png">Save picture</a>
         </div>
         <p class="share-status" role="status"></p>
       </div>

@@ -5,7 +5,7 @@ import resvgModule from './resvg.wasm';
 import { PriceSnapshotSchema, type PriceSnapshot } from '../src/generated/apple_prices/v1/price_snapshot_pb.js';
 import { priceComparison, shareSentence, type Selection } from '../src/price-comparison.ts';
 import { productPhotoFor } from '../src/product-photos.ts';
-import { flagCodesOnShareCard, shareCardSvg, shareCardHeight, shareCardWidth } from '../src/share-card-svg.ts';
+import { flagCodesOnShareCard, linkPreviewShape, postPictureShape, shareCardSvg, type ShareCardShape } from '../src/share-card-svg.ts';
 import { isShareLinkPath, selectionFromShareLink, shareCardPath, shareLinkPath } from '../src/share-link.ts';
 import { productNameWithStorage, specLine } from '../src/spec-words.ts';
 
@@ -63,13 +63,13 @@ async function flagAsDataUrl(flagCode: string): Promise<string> {
   return `data:${webAssets[path].contentType};base64,${base64FromBytes(await webAssetBytes(path))}`;
 }
 
-async function shareCardPng(snapshot: PriceSnapshot, selection: Selection): Promise<Uint8Array> {
+async function shareCardPng(snapshot: PriceSnapshot, selection: Selection, shape: ShareCardShape): Promise<Uint8Array> {
   const comparison = priceComparison(snapshot, selection);
   const productPhoto = productPhotoFor(selection.productId, selection.configurationId);
   const flagCodes = flagCodesOnShareCard(comparison).filter(flagCode => flagPaths[flagCode]);
   const flagDataUrls = await Promise.all(flagCodes.map(flagAsDataUrl));
   const productPhotoDataUrl = `data:image/jpeg;base64,${SHARE_CARD_PRODUCT_PHOTOS_BASE64[productPhoto.imageName]}`;
-  return renderPng(shareCardSvg(comparison, { productPhoto, productPhotoDataUrl, flagDataUrls: Object.fromEntries(flagCodes.map((flagCode, index) => [flagCode, flagDataUrls[index]])) }));
+  return renderPng(shareCardSvg(comparison, { productPhoto, productPhotoDataUrl, flagDataUrls: Object.fromEntries(flagCodes.map((flagCode, index) => [flagCode, flagDataUrls[index]])) }, shape));
 }
 
 const escapeHtml = (text: string) => text.replace(/[<>&"]/g, character => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[character]!);
@@ -83,7 +83,7 @@ function pageForShareLink(snapshot: PriceSnapshot, selection: Selection, origin:
   const title = `${productNameWithStorage(comparison.product, comparison.configuration)}: what it costs in each country`, sentence = shareSentence(comparison);
   const tags = Object.entries({
     'og:type': 'website', 'og:site_name': 'Apple Prices', 'og:title': title, 'og:description': sentence, 'og:url': origin + shareLinkPath(selection),
-    'og:image': origin + shareCardPath(selection), 'og:image:width': String(shareCardWidth), 'og:image:height': String(shareCardHeight),
+    'og:image': origin + shareCardPath(selection), 'og:image:width': String(linkPreviewShape.width), 'og:image:height': String(linkPreviewShape.height),
     'twitter:card': 'summary_large_image', 'twitter:creator': '@jjpcodes', 'twitter:title': title, 'twitter:description': sentence, 'twitter:image': origin + shareCardPath(selection),
   }).map(([name, content]) => `<meta ${name.startsWith('og:') ? 'property' : 'name'}="${name}" content="${escapeHtml(content)}">`);
   const head = [`<title>${escapeHtml(title)}</title>`, `<meta name="description" content="${escapeHtml(sentence)}">`, ...tags].join('\n');
@@ -115,9 +115,10 @@ export default {
     if (asset) return serveWebAsset(asset);
 
     const snapshot = await priceSnapshot();
-    if (url.pathname.startsWith('/share-card/') && url.pathname.endsWith('.png') && isShareLinkPath(snapshot, url.pathname.slice('/share-card'.length, -'.png'.length))) {
+    const cardShape = ({ 'share-card': linkPreviewShape, 'post-picture': postPictureShape } as Record<string, ShareCardShape>)[url.pathname.split('/')[1]];
+    if (cardShape && url.pathname.endsWith('.png') && isShareLinkPath(snapshot, url.pathname.slice(url.pathname.indexOf('/', 1), -'.png'.length))) {
       const started = Date.now();
-      const png = await shareCardPng(snapshot, selectionFromShareLink(snapshot, url));
+      const png = await shareCardPng(snapshot, selectionFromShareLink(snapshot, url), cardShape);
       return new Response(png, { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600', 'Server-Timing': `render;dur=${Date.now() - started}` } });
     }
     if (url.pathname === '/' || isShareLinkPath(snapshot, url.pathname)) return pageForShareLink(snapshot, selectionFromShareLink(snapshot, url), url.origin);
