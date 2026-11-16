@@ -294,6 +294,11 @@ async function journeyWithTheTaxSwitch(): Promise<void> {
   check('prices include tax at first', (await price(page, 'visitor')) === '€1,479' && (await page.getByRole('switch', { name: 'Include tax' }).getAttribute('aria-checked')) === 'true', await price(page, 'visitor'));
   await page.getByRole('switch', { name: 'Include tax' }).click();
   await settled(page);
+  const note = page.locator('.pop-up-of-note');
+  check('the first time tax is turned off, a note says which taxes come out', await note.isVisible() && (await note.innerText()).includes('Turkey’s and Brazil’s extra taxes'));
+  await note.getByRole('button', { name: 'OK' }).click();
+  await settled(page);
+  check('OK closes the note', !(await note.isVisible()));
   check('the switch shows the Netherlands before 21% VAT', (await price(page, 'visitor')) === '€1,222' && page.url().includes('tax=before'), `${await price(page, 'visitor')} ${page.url()}`);
   check('Oregon, with no sales tax, is the same before tax', (await price(page, 'compared')) === oregonWithTax, `${oregonWithTax} then ${await price(page, 'compared')}`);
   check('the map key says which places have no price before tax', (await page.locator('.map-key').innerText()).replace(/\s+/g, ' ').includes('No price before tax'));
@@ -305,8 +310,23 @@ async function journeyWithTheTaxSwitch(): Promise<void> {
   const picture = await fetch(`${siteAddress}/post-picture/iphone-18-pro/6.3in-256gb.png?me=NL&vs=US-OR&in=EUR&tax=before`);
   check('the picture for a link before tax is made', picture.ok && picture.headers.get('content-type') === 'image/png');
   check('the shared page says its prices are before tax', (await (await fetch(`${siteAddress}/iphone-18-pro/6.3in-256gb?me=NL&in=EUR&tax=before`)).text()).includes('Prices before tax.'));
+  await page.getByRole('switch', { name: 'Include tax' }).click(); await settled(page);
+  await page.getByRole('switch', { name: 'Include tax' }).click(); await settled(page);
+  check('the note shows only once', !(await note.isVisible()));
   await page.goBack(); await settled(page);
   check('Back returns to prices with tax', (await price(page, 'visitor')) === '€1,479' && !page.url().includes('tax=') && (await page.getByRole('switch', { name: 'Include tax' }).getAttribute('aria-checked')) === 'true', page.url());
+  await context.close();
+}
+
+// Turkey and Brazil add taxes on top of VAT or state sales tax; before tax takes them all out and leaves the import duty in.
+async function journeyWithTurkeyAndBrazilBeforeTax(): Promise<void> {
+  const context = await laptopContext();
+  const page = await openPage(context, '/iphone-18-pro/6.3in-256gb?me=TR&vs=BR&tax=before');
+  const priceWithLocal = async (role: string) => (await page.locator(`.column-${role} .column-price`).innerText()).replace(/\s+/g, ' ');
+  check('Turkey’s iPhone before tax is ₺137,999 less its culture share, TRT fee, special consumption tax and VAT', (await priceWithLocal('visitor')).includes('₺67,774'), await priceWithLocal('visitor'));
+  check('Brazil’s iPhone before tax is R$11,999 less its state sales tax, PIS and COFINS, and IPI', (await priceWithLocal('compared')).includes('R$7,509'), await priceWithLocal('compared'));
+  await page.goto(`${siteAddress}/airpods-pro-3/standard?me=TR&tax=before`); await settled(page);
+  check('where a tax on a kind of product is not confirmed, its price before tax is not known', (await page.locator('.band-notice').innerText()).includes('Turkey’s price before tax isn’t known'), await page.locator('.band-notice').innerText());
   await context.close();
 }
 
@@ -439,6 +459,7 @@ async function journeysOnAPhone(): Promise<void> {
 if (!onlyNamesContaining || onlyNamesContaining === 'journeys') {
   await journeyByMouse();
   await journeyWithTheTaxSwitch();
+  await journeyWithTurkeyAndBrazilBeforeTax();
   await journeyByKeyboard();
   await journeysAboutPlace();
   await journeysOnAPhone();

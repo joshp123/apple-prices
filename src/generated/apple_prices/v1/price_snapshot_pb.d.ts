@@ -297,6 +297,13 @@ export declare type ConsumptionTax = Message<"apple_prices.v1.ConsumptionTax"> &
    * @generated from field: string checked_on = 6;
    */
   checkedOn: string;
+
+  /**
+   * Where the taxes depend on the kind of product, the first entry naming the product's id or category replaces the single rate.
+   *
+   * @generated from field: repeated apple_prices.v1.ProductTaxes product_taxes = 7;
+   */
+  productTaxes: ProductTaxes[];
 };
 
 /**
@@ -304,6 +311,79 @@ export declare type ConsumptionTax = Message<"apple_prices.v1.ConsumptionTax"> &
  * Use `create(ConsumptionTaxSchema)` to create a new message.
  */
 export declare const ConsumptionTaxSchema: GenMessage<ConsumptionTax>;
+
+/**
+ * Every tax on the sale of one kind of product, in the order they are charged. Import duties are not taxes on the sale and stay in.
+ *
+ * @generated from message apple_prices.v1.ProductTaxes
+ */
+export declare type ProductTaxes = Message<"apple_prices.v1.ProductTaxes"> & {
+  /**
+   * @generated from field: repeated apple_prices.v1.ProductCategory categories = 1;
+   */
+  categories: ProductCategory[];
+
+  /**
+   * @generated from field: repeated string product_ids = 2;
+   */
+  productIds: string[];
+
+  /**
+   * @generated from field: repeated apple_prices.v1.TaxOnSale taxes = 3;
+   */
+  taxes: TaxOnSale[];
+
+  /**
+   * Set, with no taxes, where a tax on this kind of product could not be confirmed.
+   *
+   * @generated from field: string why_not_known = 4;
+   */
+  whyNotKnown: string;
+
+  /**
+   * @generated from field: string source_name = 5;
+   */
+  sourceName: string;
+
+  /**
+   * @generated from field: string source_url = 6;
+   */
+  sourceUrl: string;
+};
+
+/**
+ * Describes the message apple_prices.v1.ProductTaxes.
+ * Use `create(ProductTaxesSchema)` to create a new message.
+ */
+export declare const ProductTaxesSchema: GenMessage<ProductTaxes>;
+
+/**
+ * @generated from message apple_prices.v1.TaxOnSale
+ */
+export declare type TaxOnSale = Message<"apple_prices.v1.TaxOnSale"> & {
+  /**
+   * As a visitor would read it: VAT, special consumption tax, TRT fee.
+   *
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * @generated from field: double percent = 2;
+   */
+  percent: number;
+
+  /**
+   * @generated from field: apple_prices.v1.TaxBase base = 3;
+   */
+  base: TaxBase;
+};
+
+/**
+ * Describes the message apple_prices.v1.TaxOnSale.
+ * Use `create(TaxOnSaleSchema)` to create a new message.
+ */
+export declare const TaxOnSaleSchema: GenMessage<TaxOnSale>;
 
 /**
  * @generated from message apple_prices.v1.ShelfPrice
@@ -595,4 +675,40 @@ export enum PriceSourceKind {
  * Describes the enum apple_prices.v1.PriceSourceKind.
  */
 export declare const PriceSourceKindSchema: GenEnum<PriceSourceKind>;
+
+/**
+ * @generated from enum apple_prices.v1.TaxBase
+ */
+export enum TaxBase {
+  /**
+   * @generated from enum value: TAX_BASE_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * Charged on the price so far and added to it, like VAT.
+   *
+   * @generated from enum value: TAX_BASE_ADDED = 1;
+   */
+  ADDED = 1,
+
+  /**
+   * A share of the final price, like Brazil's state sales tax.
+   *
+   * @generated from enum value: TAX_BASE_SHARE_OF_PRICE = 2;
+   */
+  SHARE_OF_PRICE = 2,
+
+  /**
+   * A share of the price less the other taxes in it, like Brazil's PIS and COFINS.
+   *
+   * @generated from enum value: TAX_BASE_SHARE_OF_REVENUE = 3;
+   */
+  SHARE_OF_REVENUE = 3,
+}
+
+/**
+ * Describes the enum apple_prices.v1.TaxBase.
+ */
+export declare const TaxBaseSchema: GenEnum<TaxBase>;
 

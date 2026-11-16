@@ -3,7 +3,7 @@ import { PriceSourceKind, type PriceSnapshot, type Product, type ProductConfigur
 import { formatMoney } from './money.ts';
 import { countriesTaxedByStateOrProvince, countryCodeOf, isStateOrProvince, mostPopulousFirst, placeNameAfterIn } from './places.ts';
 import { storageWords } from './spec-words.ts';
-import { cheapestAndMostExpensive, territoryPrices, unitsPerUsDollar, type TerritoryPrice } from './territory-prices.ts';
+import { cheapestAndMostExpensive, taxesOnSale, territoryPrices, unitsPerUsDollar, type TerritoryPrice } from './territory-prices.ts';
 
 export type Selection = {
   productId: string;
@@ -21,8 +21,8 @@ export type PlacePrice =
   // The United States or Canada as a whole: the price depends on the state or province.
   | { kind: 'priced-by-state-or-province'; lowest: TerritoryPrice; highest: TerritoryPrice; stateOrProvinceCount: number }
   | { kind: 'not-known-in-palestine' }
-  // Before tax, where several taxes or a tax on import cannot be taken out of Apple's price at one rate.
-  | { kind: 'not-known-before-tax'; whyNoSingleRate: string }
+  // Before tax, where a tax on this kind of product could not be confirmed.
+  | { kind: 'not-known-before-tax'; whyNotKnown: string }
   | { kind: 'not-sold' }
   | { kind: 'only-base-model-priced' }
   | { kind: 'no-apple-shop' }
@@ -57,8 +57,8 @@ export function placePriceOf(snapshot: PriceSnapshot, product: Product, prices: 
   if (!store) return { kind: 'no-apple-shop' };
   if (store.productIdsNotSold.includes(product.productId)) return { kind: 'not-sold' };
   // Prices before tax come from a price list that leaves such places out; the list's first entry says which kind it is.
-  const isBeforeTax = prices[0] && !prices[0].includesTax, whyNoSingleRate = store.consumptionTax?.whyNoSingleRate;
-  if (isBeforeTax && whyNoSingleRate && store.shelfPrices.some(shelfPrice => shelfPrice.productId === product.productId)) return { kind: 'not-known-before-tax', whyNoSingleRate };
+  const isBeforeTax = prices[0] && !prices[0].includesTax, taxes = taxesOnSale(store.consumptionTax, product);
+  if (isBeforeTax && 'whyNotKnown' in taxes && store.shelfPrices.some(shelfPrice => shelfPrice.productId === product.productId)) return { kind: 'not-known-before-tax', whyNotKnown: taxes.whyNotKnown };
   if (store.priceSourceKind !== PriceSourceKind.APPLE_PRODUCT_PAGE) return { kind: 'no-apple-price' };
   return store.shelfPrices.some(shelfPrice => shelfPrice.productId === product.productId) ? { kind: 'only-base-model-priced' } : { kind: 'no-apple-shop' };
 }
@@ -132,9 +132,9 @@ export function salesTaxSentence(snapshot: PriceSnapshot, price: TerritoryPrice)
 
 // How a price before tax was reached: Apple's price less the tax in it, or, where tax is added at checkout, Apple's price as it is.
 function beforeTaxSentence(snapshot: PriceSnapshot, price: TerritoryPrice): string {
-  const applePrice = formatMoney(price.shelfPrice, price.currencyCode), tax = price.consumptionTax;
-  if (tax?.percent) return `Apple’s ${applePrice} less ${tax.percent}% ${tax.taxName}.`;
-  if (tax) return `No consumption tax in ${placeNameAfterIn(snapshot, price.territoryCode)}.`;
+  const applePrice = formatMoney(price.shelfPrice, price.currencyCode), taxes = price.taxesTakenOut.map(tax => `${tax.percent}% ${tax.name}`);
+  if (taxes.length) return `Apple’s ${applePrice} less ${taxes.length > 1 ? `${taxes.slice(0, -1).join(', ')} and ${taxes.at(-1)}` : taxes[0]}.`;
+  if (price.shelfPriceIncludesSalesTax) return `No consumption tax in ${placeNameAfterIn(snapshot, price.territoryCode)}.`;
   const recyclingFee = price.recyclingFee ? `, plus a ${formatMoney(price.recyclingFee, price.currencyCode)} recycling fee, which is not a tax` : '';
   return `Apple’s price before sales tax${recyclingFee}.`;
 }
@@ -143,7 +143,7 @@ export function unpricedSentence(comparison: PriceComparison, placePrice: PlaceP
   const place = placeNameAfterIn(comparison.snapshot, placeCode), productName = comparison.product.productName;
   switch (placePrice.kind) {
     case 'not-known-in-palestine': return 'We couldn’t find prices in occupied Palestine.';
-    case 'not-known-before-tax': return `${place[0].toUpperCase()}${place.slice(1)}’s price before tax isn’t known: ${placePrice.whyNoSingleRate}.`;
+    case 'not-known-before-tax': return `${place[0].toUpperCase()}${place.slice(1)}’s price before tax isn’t known: ${placePrice.whyNotKnown}.`;
     case 'not-sold': return `Apple doesn’t sell ${productName} in ${place}.`;
     case 'only-base-model-priced': return 'Only base-model price available';
     case 'no-apple-shop': return `Apple has no online shop in ${place}.`;

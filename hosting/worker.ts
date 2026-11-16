@@ -90,7 +90,7 @@ function pageForShareLink(snapshot: PriceSnapshot, selection: Selection, origin:
   }).map(([name, content]) => `<meta ${name.startsWith('og:') ? 'property' : 'name'}="${name}" content="${escapeHtml(content)}">`);
   const head = [`<title>${escapeHtml(title)}</title>`, `<meta name="description" content="${escapeHtml(sentence)}">`, ...tags].join('\n');
   const answer = `<div class="answer-from-server"><h1>${escapeHtml(comparison.product.productName)}</h1><p>${escapeHtml(specLine(comparison.product, comparison.configuration))}</p><p>${escapeHtml(sentence)}</p>`
-    + '<p>Prices are Apple’s own and include tax. The map and every other price need JavaScript.</p></div>';
+    + `<p>Prices are Apple’s own${selection.pricesIncludeTax ? ' and include tax' : ''}. The map and every other price need JavaScript.</p></div>`;
   return htmlResponse(PAGE_HTML.replace(titleAndSharePreviewTagsGap, head).replace(answerFromServerGap, answer));
 }
 

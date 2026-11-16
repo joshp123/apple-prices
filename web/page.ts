@@ -28,6 +28,7 @@ function setMapArea(area: string): void {
 // The place /api/whereami gives for whoever opened the page.
 let openerPlaceCode: string | null = null;
 const visitorChosePlaceInThisTab = 'visitor chose their place in this tab';
+const visitorSawTaxNote = 'visitor saw the note on prices before tax';
 
 function view(): PageView {
   const shownPlace = state.visitorPlaceCode;
@@ -160,6 +161,10 @@ function listenToControls(): void {
   on<boolean>('#tax-switch', 'checkedchange', pricesIncludeTax => {
     change({ pricesIncludeTax });
     announce(pricesIncludeTax ? 'Prices include tax' : 'Prices before tax');
+    // The first time a visitor turns tax off, a note beside the switch says which taxes come out.
+    if (pricesIncludeTax || localStorage.getItem(visitorSawTaxNote)) return;
+    localStorage.setItem(visitorSawTaxNote, 'yes');
+    void element<UiPopoverElement>('#tax-note').api.open({ anchor: element('#tax-switch') });
   });
   on<string>('#currency-select', 'valuechange', displayCurrencyCode => {
     change({ displayCurrencyCode });

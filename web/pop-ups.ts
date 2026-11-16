@@ -9,6 +9,13 @@ import { escapeHtml, flagHtml, icons } from './html.ts';
 import type { PageView } from './page-view.ts';
 
 export const popUpsHtml = `
+  <ui-popover id="tax-note" presentation="popover">
+    <ui-popover-content hidden class="pop-up pop-up-of-note" side="top" align="end" side-offset="10" collision-padding="12">
+      <ui-popover-title class="pop-up-title">Prices before tax</ui-popover-title>
+      <ui-popover-description class="pop-up-text">We take out VAT, sales tax and the other taxes some countries charge on top, such as Turkey’s and Brazil’s extra taxes on phones and computers.</ui-popover-description>
+      <div class="pop-up-actions"><ui-popover-close><button type="button" class="control control-primary">OK</button></ui-popover-close></div>
+    </ui-popover-content>
+  </ui-popover>
   <ui-popover id="place-pop-up" presentation="auto">
     <ui-popover-content hidden class="pop-up pop-up-of-place" side="top" side-offset="14" collision-padding="12"></ui-popover-content>
   </ui-popover>

@@ -91,6 +91,36 @@ message ConsumptionTax {
   string source_url = 5;
   // ISO 8601 date the rate was last checked as current.
   string checked_on = 6;
+  // Where the taxes depend on the kind of product, the first entry naming the product's id or category replaces the single rate.
+  repeated ProductTaxes product_taxes = 7;
+}
+
+// Every tax on the sale of one kind of product, in the order they are charged. Import duties are not taxes on the sale and stay in.
+message ProductTaxes {
+  repeated ProductCategory categories = 1;
+  repeated string product_ids = 2;
+  repeated TaxOnSale taxes = 3;
+  // Set, with no taxes, where a tax on this kind of product could not be confirmed.
+  string why_not_known = 4;
+  string source_name = 5;
+  string source_url = 6;
+}
+
+message TaxOnSale {
+  // As a visitor would read it: VAT, special consumption tax, TRT fee.
+  string name = 1;
+  double percent = 2;
+  TaxBase base = 3;
+}
+
+enum TaxBase {
+  TAX_BASE_UNSPECIFIED = 0;
+  // Charged on the price so far and added to it, like VAT.
+  TAX_BASE_ADDED = 1;
+  // A share of the final price, like Brazil's state sales tax.
+  TAX_BASE_SHARE_OF_PRICE = 2;
+  // A share of the price less the other taxes in it, like Brazil's PIS and COFINS.
+  TAX_BASE_SHARE_OF_REVENUE = 3;
 }
 
 message ShelfPrice {

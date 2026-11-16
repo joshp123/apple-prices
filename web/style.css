@@ -283,6 +283,9 @@ body { display: block; position: relative; }
 .pop-up-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-block-start: var(--space-4); }
 .pop-up-link { align-self: flex-start; margin-block-start: var(--space-3); font-size: var(--text-label); }
 .pop-up-of-tax { inline-size: 420px; gap: var(--space-2); }
+.pop-up-of-note { inline-size: 300px; gap: var(--space-2); }
+.pop-up-text { font-size: var(--text-body); line-height: 1.4; text-wrap: pretty; }
+.pop-up-of-note .pop-up-actions { justify-content: flex-end; margin-block-start: var(--space-2); }
 .tax-details { display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-label); line-height: 1.45; color: var(--ink-2); }
 .tax-details-lead { color: var(--ink); }
 
