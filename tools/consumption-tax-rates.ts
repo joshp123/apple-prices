@@ -51,12 +51,12 @@ export const consumptionTaxByCountry: Record<string, ConsumptionTaxRate> = {
       {
         // Each charged on the total before it: ₺229,999 for iPhone Duo is ₺112,960 before tax, as Deutsche Welle worked it out.
         categories: [ProductCategory.IPHONE],
-        taxes: [{ name: 'culture ministry share', percent: 1 }, { name: 'TRT fee', percent: 12 }, { name: 'special consumption tax', percent: 50 }, { name: 'VAT', percent: 20 }],
-        sourceName: 'Deutsche Welle, iPhone Duo: why phones cost more in Turkey (11 Sep 2026); ÖTV list IV, top band', sourceUrl: 'https://www.dw.com/tr/iphone-duo-t%C3%BCrkiyede-neden-di%C4%9Fer-%C3%BClkelerden-daha-pahal%C4%B1/a-79231884',
+        taxes: [{ name: 'culture ministry share', percent: 1.2 }, { name: 'TRT fee', percent: 12 }, { name: 'special consumption tax', percent: 50 }, { name: 'VAT', percent: 20 }],
+        sourceName: 'Presidential Decision 10701 (Resmî Gazete, 19 Dec 2025): culture share 1.2% on phones from 3 Jan 2026; Decision 5610: TRT fee 12%; ÖTV list IV, top band 50%; Deutsche Welle (11 Sep 2026) for the order', sourceUrl: 'https://www.dw.com/tr/iphone-duo-t%C3%BCrkiyede-neden-di%C4%9Fer-%C3%BClkelerden-daha-pahal%C4%B1/a-79231884',
       },
       {
-        categories: [ProductCategory.IPAD, ProductCategory.MAC], taxes: [{ name: 'TRT fee', percent: 4 }, { name: 'VAT', percent: 20 }],
-        sourceName: 'Presidential Decision 5610 on TRT fees (Resmî Gazete, 26 May 2022): computers and tablets 4%', sourceUrl: 'https://www.resmigazete.gov.tr/eskiler/2022/05/20220526-15.pdf',
+        categories: [ProductCategory.IPAD, ProductCategory.MAC], taxes: [{ name: 'culture ministry share', percent: 1 }, { name: 'TRT fee', percent: 4 }, { name: 'VAT', percent: 20 }],
+        sourceName: 'Presidential Decision 10701 (Resmî Gazete, 19 Dec 2025): culture share 1% on computers; Decision 5610 (26 May 2022): TRT fee 4% on computers and tablets', sourceUrl: 'https://www.lexpera.com.tr/resmi-gazete/metin/fikir-ve-sanat-eserlerinin-cogaltilmasina-yarayan-teknik-cihazlar-ile-bos-tasiyici-materyallerin-6',
       },
       {
         categories: [ProductCategory.AIRPODS, ProductCategory.HOME, ProductCategory.DISPLAY, ProductCategory.WATCH, ProductCategory.VISION], productIds: ['airtag'],
@@ -83,12 +83,17 @@ export const consumptionTaxByCountry: Record<string, ConsumptionTaxRate> = {
     sourceName: 'Royal Malaysian Customs, Sales Tax (Rate of Sales Tax) Order 2025', sourceUrl: malaysiaOrder,
     productTaxes: [
       {
-        categories: [ProductCategory.IPHONE, ProductCategory.IPAD, ProductCategory.MAC, ProductCategory.DISPLAY], productIds: ['apple-pencil-pro', 'apple-pencil-usb-c'],
+        categories: [ProductCategory.IPHONE, ProductCategory.IPAD, ProductCategory.MAC, ProductCategory.DISPLAY],
         taxes: [{ name: 'sales tax', percent: 5 }], sourceName: 'Sales Tax (Rate of Sales Tax) Order 2025, First Schedule: smartphones, heading 84.71, monitors 8528.52', sourceUrl: malaysiaOrder,
       },
       {
-        categories: [ProductCategory.AIRPODS], productIds: ['homepod', 'homepod-mini-2', 'apple-tv-4k', 'airtag'],
+        categories: [ProductCategory.AIRPODS], productIds: ['homepod', 'homepod-mini-2'],
         taxes: [{ name: 'sales tax', percent: 10 }], sourceName: 'Sales Tax (Rate of Sales Tax) Order 2025, paragraph 2(1): 10% on goods not in a schedule', sourceUrl: malaysiaOrder,
+      },
+      {
+        productIds: ['apple-tv-4k', 'airtag', 'apple-pencil-pro', 'apple-pencil-usb-c'],
+        whyNotKnown: 'its customs classification, and so its sales tax rate, could not be confirmed',
+        sourceName: 'Sales Tax (Rate of Sales Tax) Order 2025', sourceUrl: malaysiaOrder,
       },
     ],
   },

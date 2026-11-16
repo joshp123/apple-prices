@@ -323,7 +323,7 @@ async function journeyWithTurkeyAndBrazilBeforeTax(): Promise<void> {
   const context = await laptopContext();
   const page = await openPage(context, '/iphone-18-pro/6.3in-256gb?me=TR&vs=BR&tax=before');
   const priceWithLocal = async (role: string) => (await page.locator(`.column-${role} .column-price`).innerText()).replace(/\s+/g, ' ');
-  check('Turkey’s iPhone before tax is ₺137,999 less its culture share, TRT fee, special consumption tax and VAT', (await priceWithLocal('visitor')).includes('₺67,774'), await priceWithLocal('visitor'));
+  check('Turkey’s iPhone before tax is ₺137,999 less its culture share, TRT fee, special consumption tax and VAT', (await priceWithLocal('visitor')).includes('₺67,640'), await priceWithLocal('visitor'));
   check('Brazil’s iPhone before tax is R$11,999 less its state sales tax, PIS and COFINS, and IPI', (await priceWithLocal('compared')).includes('R$7,509'), await priceWithLocal('compared'));
   await page.goto(`${siteAddress}/airpods-pro-3/standard?me=TR&tax=before`); await settled(page);
   check('where a tax on a kind of product is not confirmed, its price before tax is not known', (await page.locator('.band-notice').innerText()).includes('Turkey’s price before tax isn’t known'), await page.locator('.band-notice').innerText());
